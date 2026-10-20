@@ -37,45 +37,6 @@ import {
   ConnectedRepo,
 } from "@/lib/api";
 
-const MOCK_INTEGRATIONS = [
-  {
-    id: "integration-github",
-    provider: "github",
-    name: "GitHub Webhooks",
-    enabled: true,
-    webhookUrl: "http://localhost:3001/api/webhooks/github",
-    webhookSecret: "gh_webhook_sec_8f94e10b27ac",
-    events: ["push", "pull_request", "pull_request_review", "check_suite", "check_run"],
-    status: "active",
-    lastEventAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    documentation: "https://docs.github.com/en/webhooks",
-  },
-  {
-    id: "integration-gitlab",
-    provider: "gitlab",
-    name: "GitLab Webhooks",
-    enabled: true,
-    webhookUrl: "http://localhost:3001/api/webhooks/gitlab",
-    webhookSecret: "gl_webhook_sec_42da90ef183c",
-    events: ["push", "merge_request", "pipeline", "tag_push"],
-    status: "active",
-    lastEventAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-    documentation: "https://docs.gitlab.com/ee/user/project/integrations/webhooks.html",
-  },
-  {
-    id: "integration-vercel",
-    provider: "vercel",
-    name: "Vercel Webhooks",
-    enabled: true,
-    webhookUrl: "http://localhost:3001/api/webhooks/vercel",
-    webhookSecret: "vc_webhook_sec_319aeb2401f9",
-    events: ["deployment", "deployment_status", "deployment_ready"],
-    status: "active",
-    lastEventAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    documentation: "https://vercel.com/docs/observability/webhooks-overview",
-  },
-];
-
 /* ── GitHub URL Validation ───────────────────────────── */
 const GITHUB_REPO_REGEX = /^https?:\/\/github\.com\/([a-zA-Z0-9._-]+)\/([a-zA-Z0-9._-]+)\/?(?:\.git)?$/;
 
@@ -90,7 +51,8 @@ function validateGitHubUrl(url: string): { valid: boolean; error?: string } {
 
 export default function IntegrationsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [integrations, setIntegrations] = useState<any[]>(MOCK_INTEGRATIONS);
+  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>("webhooks");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
@@ -112,13 +74,20 @@ export default function IntegrationsPage() {
   useEffect(() => {
     let isMounted = true;
     async function load() {
+      setLoadingIntegrations(true);
       try {
         const res = await getIntegrations();
-        if (isMounted && res && res.integrations && res.integrations.length > 0) {
+        if (isMounted && res && Array.isArray(res.integrations)) {
           setIntegrations(res.integrations);
         }
       } catch {
-        // Fallback to mock
+        if (isMounted) {
+          setIntegrations([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingIntegrations(false);
+        }
       }
     }
     load();
@@ -261,10 +230,24 @@ export default function IntegrationsPage() {
         {/* ─── Webhooks Tab ─────────────────────────────── */}
         {activeTab === "webhooks" && (
           <div className="grid grid-cols-1 gap-6">
-            {integrations.map((item) => {
-              const isRevealed = !!revealedSecrets[item.provider];
-              const isTesting = testingProvider === item.provider;
-              const resultMsg = testResult[item.provider];
+            {loadingIntegrations ? (
+              <div className="bg-white border border-porcelain-200 rounded-xl p-12 text-center shadow-sm">
+                <RefreshCw className="w-6 h-6 animate-spin text-graphite-600 mx-auto mb-2" />
+                <p className="text-sm text-graphite-500">Loading webhook integrations...</p>
+              </div>
+            ) : integrations.length === 0 ? (
+              <div className="bg-white border border-porcelain-200 rounded-xl p-12 text-center shadow-sm">
+                <Plug2 className="w-10 h-10 text-graphite-400 mx-auto mb-3" />
+                <h3 className="text-base font-semibold text-graphite-800">No Webhook Integrations Found</h3>
+                <p className="text-sm text-graphite-500 max-w-sm mx-auto mt-1">
+                  Connect repository endpoints or configure provider webhooks to activate workflows.
+                </p>
+              </div>
+            ) : (
+              integrations.map((item) => {
+                const isRevealed = !!revealedSecrets[item.provider];
+                const isTesting = testingProvider === item.provider;
+                const resultMsg = testResult[item.provider];
 
               return (
                 <div
@@ -409,7 +392,7 @@ export default function IntegrationsPage() {
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         )}
 

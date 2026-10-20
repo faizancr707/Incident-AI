@@ -66,180 +66,20 @@ interface WorkflowStats {
   byProvider: Record<string, number>;
 }
 
-const MOCK_WORKFLOWS: WorkflowExecution[] = [
-  {
-    id: "wf-101",
-    workflowType: "ci_cd_pipeline",
-    status: "completed",
-    triggerEvent: {
-      id: "evt-gh-1",
-      provider: "github",
-      eventType: "push",
-      action: "push",
-      repository: { name: "api-gateway", fullName: "numora/api-gateway", url: "https://github.com/numora/api-gateway" },
-      sender: { login: "sarah-chen" },
-      commitSha: "8f4b12a",
-      ref: "refs/heads/main",
-      timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    },
-    currentNode: "completed",
-    retryCount: 0,
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 23 * 60 * 1000).toISOString(),
-    completedAt: new Date(Date.now() - 23 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "receive_event", name: "Receive Event", status: "completed", agent: "event-receiver", duration: 450 },
-      { id: "validate_code", name: "Validate Code", status: "completed", agent: "code-validator", duration: 1200, output: { files: 6, lines: 180 } },
-      { id: "run_tests", name: "Run Tests", status: "completed", agent: "test-runner", duration: 2400, output: { passed: 184, failed: 0 } },
-      { id: "security_scan", name: "Security Scan", status: "completed", agent: "security-scanner", duration: 1100, output: { vulns: 0 } },
-      { id: "deploy_check", name: "Deploy Readiness", status: "completed", agent: "deploy-checker", duration: 800, output: { ready: true } },
-      { id: "generate_report", name: "Generate Report", status: "completed", agent: "report-generator", duration: 900 },
-    ],
-    result: {
-      summary: "CI/CD pipeline executed smoothly for main branch push. 184 test assertions passed.",
-      confidence: 0.98,
-      recommendations: ["Maintain current zero-vulnerability package dependencies"],
-    },
-  },
-  {
-    id: "wf-102",
-    workflowType: "code_review",
-    status: "completed",
-    triggerEvent: {
-      id: "evt-gh-2",
-      provider: "github",
-      eventType: "pull_request",
-      action: "opened",
-      repository: { name: "payment-service", fullName: "numora/payment-service", url: "https://github.com/numora/payment-service" },
-      sender: { login: "alex-rivera" },
-      commitSha: "3d91cf0",
-      ref: "refs/heads/feat/idempotent-charge",
-      pullRequest: { number: 84, title: "Add idempotent idempotency-key handling in charge endpoint", baseBranch: "main", headBranch: "feat/idempotent-charge" },
-      timestamp: new Date(Date.now() - 65 * 60 * 1000).toISOString(),
-    },
-    currentNode: "completed",
-    retryCount: 0,
-    createdAt: new Date(Date.now() - 65 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    completedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "receive_pr", name: "Receive PR", status: "completed", agent: "pr-receiver", duration: 500 },
-      { id: "analyze_changes", name: "Analyze Changes", status: "completed", agent: "change-analyzer", duration: 1800, output: { complexity: "moderate", risk: "low" } },
-      { id: "review_code", name: "AI Code Review", status: "completed", agent: "code-reviewer", duration: 2600, output: { score: 9.2 } },
-      { id: "suggest_improvements", name: "Suggest Improvements", status: "completed", agent: "improvement-advisor", duration: 950 },
-      { id: "generate_report", name: "Generate Report", status: "completed", agent: "report-generator", duration: 900 },
-    ],
-    result: {
-      summary: "AI review approved PR #84. Redis atomic SETNX lock implementation is resilient against duplicate charges.",
-      confidence: 0.94,
-      recommendations: ["Add a unit test simulating network disconnection during Redis transaction"],
-    },
-  },
-  {
-    id: "wf-103",
-    workflowType: "failure_analysis",
-    status: "running",
-    triggerEvent: {
-      id: "evt-gl-1",
-      provider: "gitlab",
-      eventType: "pipeline",
-      action: "failed",
-      repository: { name: "auth-service", fullName: "numora/auth-service", url: "https://gitlab.com/numora/auth-service" },
-      sender: { login: "jordan-lee" },
-      ref: "refs/heads/develop",
-      timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-    },
-    currentNode: "analyze_failure",
-    retryCount: 0,
-    createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 1 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "detect_failure", name: "Detect Failure", status: "completed", agent: "failure-detector", duration: 600 },
-      { id: "collect_failure_logs", name: "Collect Logs", status: "completed", agent: "log-collector", duration: 2100, output: { logLines: 320 } },
-      { id: "analyze_failure", name: "Analyze Failure", status: "running", agent: "failure-analyst" },
-      { id: "generate_report", name: "Generate Report", status: "pending", agent: "report-generator" },
-    ],
-  },
-  {
-    id: "wf-104",
-    workflowType: "deploy_monitor",
-    status: "waiting_approval",
-    triggerEvent: {
-      id: "evt-vc-1",
-      provider: "vercel",
-      eventType: "deployment",
-      action: "created",
-      repository: { name: "investigator-web", fullName: "numora/investigator-web", url: "https://github.com/numora/investigator-web" },
-      sender: { login: "sarah-chen" },
-      ref: "refs/heads/main",
-      timestamp: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    },
-    currentNode: "approval_gate",
-    retryCount: 0,
-    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "monitor_deploy", name: "Monitor Deployment", status: "completed", agent: "deploy-monitor", duration: 1100 },
-      { id: "health_check", name: "Health Check", status: "completed", agent: "health-checker", duration: 3200, output: { healthy: false, p99Latency: "480ms", errorRate: "4.8%" } },
-      { id: "rollback_decision", name: "Rollback Decision", status: "completed", agent: "rollback-advisor", duration: 700, output: { recommended: "rollback" } },
-      { id: "approval_gate", name: "Human Approval", status: "running", agent: "human-gate" },
-      { id: "generate_report", name: "Generate Report", status: "pending", agent: "report-generator" },
-    ],
-  },
-  {
-    id: "wf-105",
-    workflowType: "ci_cd_pipeline",
-    status: "failed",
-    triggerEvent: {
-      id: "evt-gh-3",
-      provider: "github",
-      eventType: "push",
-      action: "push",
-      repository: { name: "notification-service", fullName: "numora/notification-service", url: "https://github.com/numora/notification-service" },
-      sender: { login: "alex-rivera" },
-      commitSha: "e901a18",
-      ref: "refs/heads/feature/sms-gateway",
-      timestamp: new Date(Date.now() - 140 * 60 * 1000).toISOString(),
-    },
-    currentNode: "run_tests",
-    retryCount: 1,
-    createdAt: new Date(Date.now() - 140 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 135 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "receive_event", name: "Receive Event", status: "completed", agent: "event-receiver", duration: 400 },
-      { id: "validate_code", name: "Validate Code", status: "completed", agent: "code-validator", duration: 1100 },
-      { id: "run_tests", name: "Run Tests", status: "failed", agent: "test-runner", duration: 4200, output: { passed: 92, failed: 4 } },
-      { id: "security_scan", name: "Security Scan", status: "skipped" },
-      { id: "deploy_check", name: "Deploy Readiness", status: "skipped" },
-      { id: "generate_report", name: "Generate Report", status: "skipped" },
-    ],
-    error: "Unit tests failed: 4 tests in SMS webhook adapter timed out against mock provider.",
-  },
-];
-
-const MOCK_STATS: WorkflowStats = {
-  total: 184,
-  running: 2,
-  completed: 168,
-  failed: 9,
-  waitingApproval: 5,
-  avgDuration: 7400,
-  byType: {
-    ci_cd_pipeline: 98,
-    code_review: 48,
-    failure_analysis: 22,
-    deploy_monitor: 16,
-  },
-  byProvider: {
-    github: 128,
-    gitlab: 36,
-    vercel: 20,
-  },
+const INITIAL_STATS: WorkflowStats = {
+  total: 0,
+  running: 0,
+  completed: 0,
+  failed: 0,
+  waitingApproval: 0,
+  avgDuration: 0,
+  byType: {},
+  byProvider: {},
 };
 
 export default function WorkflowsPage() {
-  const [workflows, setWorkflows] = useState<WorkflowExecution[]>(MOCK_WORKFLOWS);
-  const [stats, setStats] = useState<WorkflowStats>(MOCK_STATS);
+  const [workflows, setWorkflows] = useState<WorkflowExecution[]>([]);
+  const [stats, setStats] = useState<WorkflowStats>(INITIAL_STATS);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -249,21 +89,33 @@ export default function WorkflowsPage() {
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
+      setLoading(true);
       try {
         const [wfRes, statsRes] = await Promise.all([
           getWorkflows().catch(() => null),
           getWorkflowStats().catch(() => null),
         ]);
         if (isMounted) {
-          if (wfRes && wfRes.workflows && wfRes.workflows.length > 0) {
+          if (wfRes && Array.isArray(wfRes.workflows)) {
             setWorkflows(wfRes.workflows);
+          } else {
+            setWorkflows([]);
           }
-          if (statsRes && statsRes.total) {
+          if (statsRes && typeof statsRes.total === "number") {
             setStats(statsRes);
+          } else {
+            setStats(INITIAL_STATS);
           }
         }
-      } catch (err) {
-        // Fallback to initial mock data
+      } catch {
+        if (isMounted) {
+          setWorkflows([]);
+          setStats(INITIAL_STATS);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     loadData();

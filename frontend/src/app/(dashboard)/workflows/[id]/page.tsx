@@ -26,129 +26,6 @@ import {
 } from "lucide-react";
 import { getWorkflowById, approveWorkflow, retryWorkflow } from "@/lib/api";
 
-const MOCK_WORKFLOW_MAP: Record<string, any> = {
-  "wf-101": {
-    id: "wf-101",
-    workflowType: "ci_cd_pipeline",
-    status: "completed",
-    triggerEvent: {
-      id: "evt-gh-1",
-      provider: "github",
-      eventType: "push",
-      action: "push",
-      repository: { name: "api-gateway", fullName: "numora/api-gateway", url: "https://github.com/numora/api-gateway" },
-      sender: { login: "sarah-chen" },
-      commitSha: "8f4b12ae398bb2c1f092305dae08711e",
-      ref: "refs/heads/main",
-      timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    },
-    currentNode: "completed",
-    retryCount: 0,
-    maxRetries: 5,
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 23 * 60 * 1000).toISOString(),
-    completedAt: new Date(Date.now() - 23 * 60 * 1000).toISOString(),
-    nodes: [
-      {
-        id: "receive_event",
-        name: "Receive Event",
-        status: "completed",
-        agent: "event-receiver",
-        duration: 450,
-        output: { provider: "github", eventType: "push", repo: "numora/api-gateway", ref: "refs/heads/main" },
-      },
-      {
-        id: "validate_code",
-        name: "Validate Code",
-        status: "completed",
-        agent: "code-validator",
-        duration: 1200,
-        output: { filesChanged: 6, linesChanged: 180, conventionsChecked: true, linterErrors: 0 },
-      },
-      {
-        id: "run_tests",
-        name: "Run Tests",
-        status: "completed",
-        agent: "test-runner",
-        duration: 2400,
-        output: { totalTests: 184, passed: 184, failed: 0, testCoverage: "92.4%", executionTime: "2.4s" },
-      },
-      {
-        id: "security_scan",
-        name: "Security Scan",
-        status: "completed",
-        agent: "security-scanner",
-        duration: 1100,
-        output: { dependenciesScanned: 248, vulnerabilities: 0, severity: "none", secretLeaksDetected: false },
-      },
-      {
-        id: "deploy_check",
-        name: "Deploy Readiness",
-        status: "completed",
-        agent: "deploy-checker",
-        duration: 800,
-        output: { ready: true, blockers: [], autoApproved: true },
-      },
-      {
-        id: "generate_report",
-        name: "Generate Report",
-        status: "completed",
-        agent: "report-generator",
-        duration: 900,
-        output: { reportId: "rep-cicd-101", format: "json", destination: "artifacts" },
-      },
-    ],
-    checkpoints: [
-      { id: "cp-1", nodeId: "receive_event", timestamp: new Date(Date.now() - 24 * 60 * 1000).toISOString() },
-      { id: "cp-2", nodeId: "validate_code", timestamp: new Date(Date.now() - 23.8 * 60 * 1000).toISOString() },
-      { id: "cp-3", nodeId: "run_tests", timestamp: new Date(Date.now() - 23.5 * 60 * 1000).toISOString() },
-      { id: "cp-4", nodeId: "security_scan", timestamp: new Date(Date.now() - 23.3 * 60 * 1000).toISOString() },
-      { id: "cp-5", nodeId: "deploy_check", timestamp: new Date(Date.now() - 23.1 * 60 * 1000).toISOString() },
-      { id: "cp-6", nodeId: "generate_report", timestamp: new Date(Date.now() - 23.0 * 60 * 1000).toISOString() },
-    ],
-    result: {
-      summary: "CI/CD pipeline executed smoothly for main branch push. 184 test assertions passed.",
-      confidence: 0.98,
-      recommendations: [
-        "Maintain current zero-vulnerability package dependencies",
-        "Pipeline passed all automated security checks and code standards",
-      ],
-    },
-  },
-  "wf-104": {
-    id: "wf-104",
-    workflowType: "deploy_monitor",
-    status: "waiting_approval",
-    triggerEvent: {
-      id: "evt-vc-1",
-      provider: "vercel",
-      eventType: "deployment",
-      action: "created",
-      repository: { name: "investigator-web", fullName: "numora/investigator-web", url: "https://github.com/numora/investigator-web" },
-      sender: { login: "sarah-chen" },
-      ref: "refs/heads/main",
-      timestamp: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    },
-    currentNode: "approval_gate",
-    retryCount: 0,
-    maxRetries: 5,
-    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    nodes: [
-      { id: "monitor_deploy", name: "Monitor Deployment", status: "completed", agent: "deploy-monitor", duration: 1100, output: { deploymentId: "dpl_981ab2", environment: "production" } },
-      { id: "health_check", name: "Health Check", status: "completed", agent: "health-checker", duration: 3200, output: { healthy: false, p99Latency: "480ms", errorRate: "4.8%", http5xxCount: 42 } },
-      { id: "rollback_decision", name: "Rollback Decision", status: "completed", agent: "rollback-advisor", duration: 700, output: { recommended: "rollback", reason: "Error rate exceeds 1.5% threshold" } },
-      { id: "approval_gate", name: "Human Approval Gate", status: "running", agent: "human-gate", output: { awaitingUserRole: "admin_or_owner", prompt: "Awaiting engineer sign-off to execute automated rollback to release v2.4.1" } },
-      { id: "generate_report", name: "Generate Report", status: "pending", agent: "report-generator" },
-    ],
-    checkpoints: [
-      { id: "cp-1", nodeId: "monitor_deploy", timestamp: new Date(Date.now() - 34 * 60 * 1000).toISOString() },
-      { id: "cp-2", nodeId: "health_check", timestamp: new Date(Date.now() - 31 * 60 * 1000).toISOString() },
-      { id: "cp-3", nodeId: "rollback_decision", timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString() },
-    ],
-  },
-};
-
 export default function WorkflowDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -162,24 +39,24 @@ export default function WorkflowDetailPage() {
   useEffect(() => {
     let isMounted = true;
     async function load() {
+      setLoading(true);
       try {
         const res = await getWorkflowById(id);
-        if (isMounted && res && res.workflow) {
-          setWorkflow(res.workflow);
-          setLoading(false);
-          return;
+        if (isMounted) {
+          if (res && res.workflow) {
+            setWorkflow(res.workflow);
+          } else {
+            setWorkflow(null);
+          }
         }
-      } catch (err) {
-        // Fallback to mock
-      }
-
-      if (isMounted) {
-        const fallback = MOCK_WORKFLOW_MAP[id] || {
-          ...MOCK_WORKFLOW_MAP["wf-101"],
-          id,
-        };
-        setWorkflow(fallback);
-        setLoading(false);
+      } catch {
+        if (isMounted) {
+          setWorkflow(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -223,12 +100,33 @@ export default function WorkflowDetailPage() {
     }
   };
 
-  if (loading || !workflow) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-porcelain-100 flex items-center justify-center p-6">
         <div className="flex items-center gap-3 text-graphite-600">
           <RefreshCw className="w-5 h-5 animate-spin text-graphite-900" />
           <span className="text-sm font-medium">Loading LangGraph state graph...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!workflow) {
+    return (
+      <div className="min-h-screen bg-porcelain-100/60 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white border border-porcelain-200 rounded-2xl p-8 max-w-md shadow-sm">
+          <GitBranch className="w-10 h-10 text-graphite-400 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-graphite-900">Workflow Execution Not Found</h2>
+          <p className="text-xs text-graphite-500 mt-1 mb-6">
+            Execution ID <code className="font-mono font-semibold text-graphite-800">{id}</code> was not found or has expired.
+          </p>
+          <Link
+            href="/workflows"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-graphite-950 text-white hover:bg-graphite-900 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to All Workflows
+          </Link>
         </div>
       </div>
     );
