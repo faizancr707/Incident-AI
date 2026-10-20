@@ -203,7 +203,11 @@ export const integrationConfigUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   enabled: z.boolean().optional(),
   webhookSecret: z.string().optional(),
+  secret: z.string().optional(),
+  webhookUrl: z.string().optional(),
+  repositoryScope: z.string().optional(),
   events: z.array(z.string()).optional(),
-  status: z.enum(['active', 'inactive', 'error']).optional(),
+  status: z.enum(['active', 'inactive', 'error', 'connected', 'disconnected']).optional(),
+  config: z.record(z.unknown()).optional(),
   metadata: z.record(z.unknown()).optional()
-});
+}).passthrough();

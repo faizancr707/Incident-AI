@@ -43,12 +43,43 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function receiveEventNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
   await sleep(500);
   const event = state.event;
+
+  // Match against verified connected repositories
+  const githubIntegration = workflowStore.getIntegration('integration-github');
+  const connectedRepos = (githubIntegration?.metadata?.connectedRepos as any[]) || [];
+  const matchedRepo = connectedRepos.find(
+    (r: any) =>
+      r.fullName?.toLowerCase() === event.repository?.fullName?.toLowerCase() ||
+      r.repo?.toLowerCase() === event.repository?.name?.toLowerCase()
+  );
+
   return {
     currentNode: 'validate_code',
-    nodes: [{ id: 'receive_event', name: 'Receive Event', status: 'completed', agent: 'event-receiver',
-      output: { provider: event.provider, type: event.eventType, repo: event.repository?.fullName },
-      startedAt: new Date(), completedAt: new Date(), duration: 500 }],
-    analysis: { eventReceived: true, provider: event.provider, eventType: event.eventType }
+    nodes: [{
+      id: 'receive_event',
+      name: 'Receive Event',
+      status: 'completed',
+      agent: 'event-receiver',
+      output: {
+        provider: event.provider,
+        type: event.eventType,
+        repo: event.repository?.fullName,
+        isVerifiedRepo: !!matchedRepo,
+        matchedRepoUrl: matchedRepo?.url || null,
+      },
+      startedAt: new Date(),
+      completedAt: new Date(),
+      duration: 500,
+    }],
+    analysis: {
+      eventReceived: true,
+      provider: event.provider,
+      eventType: event.eventType,
+      repositoryVerified: !!matchedRepo,
+      repositoryDetails: matchedRepo
+        ? { fullName: matchedRepo.fullName, defaultBranch: matchedRepo.defaultBranch, private: matchedRepo.private }
+        : null,
+    },
   };
 }
 

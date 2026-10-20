@@ -19,7 +19,7 @@ import { knowledgeRoutes } from "./routes/knowledge";
 import { evaluationRoutes } from "./routes/evaluations";
 import { healthRoutes } from "./routes/health";
 import { webhookRoutes } from "./routes/webhooks";
-import { workflowRoutes } from "./routes/workflows";
+import { workflowRoutes, integrationRoutes } from "./routes/workflows";
 
 // Initialize OpenTelemetry before anything else
 setupTelemetry();
@@ -55,6 +55,7 @@ app.use("/api/auth", authRoutes);           // Public: login/logout/me
 app.use("/api/health", healthRoutes);       // Public: health check
 app.use("/api/webhooks", webhookRoutes);
 app.use("/api/workflows", workflowRoutes);
+app.use("/api/integrations", integrationRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/investigations", investigationRoutes);
 app.use("/api/agents", agentRoutes);
@@ -74,9 +75,10 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
 /* ── Start ─────────────────────────────────────────────── */
 app.listen(3001, () => {
   logger.info(`🚀 Incident Investigator API running on port ${PORT}`);
-  logger.info(`📊 Metrics available at /api/health/metrics`);
+  logger.info(`📊 Prometheus metrics exporter listening on port 9464`);
   logger.info(`🔍 OpenTelemetry tracing enabled`);
   logger.info(`🔐 Auth middleware active`);
+
 });
 
 export default app;

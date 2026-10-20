@@ -1,6 +1,7 @@
 import { logger } from "../lib/logger";
 import { StateGraph, START, END, Annotation } from "@langchain/langgraph";
 import { v4 as uuidv4 } from "uuid";
+import { workflowStore } from "../workflows/store";
 
 /**
  * AI Agent System — LangGraph-based investigation workflow
@@ -310,11 +311,48 @@ async function analyzeTracesNode(state: typeof InvestigationAnnotation.State) {
 async function inspectDeploymentNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running inspectDeploymentNode for ${state.incidentId}`);
   await sleep(1000);
+
+  // Check for verified connected repositories in the integration store
+  const integration = workflowStore.getIntegration("integration-github");
+  const connectedRepos = (integration?.metadata?.connectedRepos as any[]) || [];
+
+  const findings: string[] = [];
+  const evidence: EvidenceItem[] = [];
+
+  if (connectedRepos.length > 0) {
+    const primaryRepo = connectedRepos[0];
+    findings.push(
+      `Correlated incident context with verified repository: ${primaryRepo.fullName} (${primaryRepo.private ? "private" : "public"}, default branch: ${primaryRepo.defaultBranch})`
+    );
+    evidence.push({
+      id: uuidv4(),
+      type: "git_repository",
+      title: `Connected Repository: ${primaryRepo.fullName}`,
+      description: `Target repository ${primaryRepo.url} verified via GitHub API (default branch: ${primaryRepo.defaultBranch})`,
+      confidence: 0.9,
+      source: "GitHub Integration",
+      timestamp: new Date(),
+      data: {
+        repoFullName: primaryRepo.fullName,
+        repoUrl: primaryRepo.url,
+        defaultBranch: primaryRepo.defaultBranch,
+        isPrivate: primaryRepo.private,
+        hasToken: primaryRepo.hasToken,
+      },
+    });
+  } else {
+    findings.push(
+      "No GitHub repositories connected. Link a repository in Integrations to enable automated repository context correlation."
+    );
+  }
+
   return {
     currentStep: "analyze_database",
-    steps: [{ id: "inspect_deployment", agent: "github-analyst", status: "completed", findings: ["Recent PR merged touching payment logic"] }]
+    steps: [{ id: "inspect_deployment", agent: "github-analyst", status: "completed", findings }],
+    evidence,
   };
 }
+
 
 async function analyzeDatabaseNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running analyzeDatabaseNode for ${state.incidentId}`);

@@ -2,8 +2,8 @@ import { Pool } from "pg";
 import { logger } from "../lib/logger";
 
 // Import mock data to seed the fallback DB
-// @ts-ignore
-import { incidents, logs, metrics, traceSpans, deployments, agents, knowledgeEntries, evaluationMetrics } from "../../../frontend/src/lib/mock-data";
+import { incidents, logs, metrics, traceSpans, deployments, agents, knowledgeEntries, evaluationMetrics } from "./mock-data";
+
 
 // Create an in-memory data store for fallback
 class MockDB {

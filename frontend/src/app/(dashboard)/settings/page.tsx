@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Settings,
@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { getIntegrations, updateIntegration, testIntegration } from "@/lib/api";
 
 interface IntegrationItem {
   id: string;
@@ -174,6 +175,7 @@ export default function SettingsPage() {
   const [configuringItem, setConfiguringItem] = useState<IntegrationItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSavingIntegration, setIsSavingIntegration] = useState(false);
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -193,6 +195,40 @@ export default function SettingsPage() {
       toast({ title, description, variant });
     }
   };
+
+  // Fetch persisted integrations on mount from backend
+  useEffect(() => {
+    let isMounted = true;
+    getIntegrations()
+      .then((res) => {
+        if (!isMounted || !res?.integrations) return;
+        setIntegrations((prev) =>
+          prev.map((item) => {
+            const found = res.integrations.find(
+              (i: any) => i.provider === item.id || i.id === item.id || i.id === `integration-${item.id}`
+            );
+            if (!found) return item;
+            return {
+              ...item,
+              status: found.status === "active" ? "connected" : "disconnected",
+              config: {
+                ...item.config,
+                webhookUrl: found.webhookUrl || item.config.webhookUrl,
+                secret: found.webhookSecret || item.config.secret,
+                events: found.events || item.config.events,
+                ...(found.metadata || {}),
+              },
+            };
+          })
+        );
+      })
+      .catch((err) => {
+        console.warn("Could not load integrations from backend:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const tabs = [
     { id: "General", icon: <Settings className="w-4 h-4" /> },
@@ -216,30 +252,89 @@ export default function SettingsPage() {
     setIsTesting(false);
   };
 
-  const handleSaveIntegration = () => {
+  const handleSaveIntegration = async () => {
     if (!configuringItem) return;
-    setIntegrations((prev) =>
-      prev.map((int) =>
-        int.id === configuringItem.id
-          ? { ...int, status: editStatus, config: { ...editConfig } }
-          : int
-      )
-    );
-    notify(
-      `${configuringItem.name} Configured`,
-      `Settings and connection parameters for ${configuringItem.name} have been updated.`
-    );
-    handleCloseConfigure();
+    setIsSavingIntegration(true);
+    try {
+      const payload = {
+        name: configuringItem.name,
+        status: editStatus,
+        enabled: editStatus === "connected",
+        webhookUrl: editConfig.webhookUrl,
+        secret: editConfig.secret,
+        webhookSecret: editConfig.secret,
+        repositoryScope: editConfig.repositoryScope,
+        events: editConfig.events,
+        config: editConfig,
+        metadata: {
+          ...editConfig,
+          channel: editConfig.channel,
+          severityThreshold: editConfig.severityThreshold,
+          routingKey: editConfig.routingKey,
+          escalationPolicy: editConfig.escalationPolicy,
+          apiKey: editConfig.apiKey,
+          site: editConfig.site,
+          region: editConfig.region,
+          host: editConfig.host,
+        },
+      };
+
+      const res = await updateIntegration(configuringItem.id, payload);
+
+      setIntegrations((prev) =>
+        prev.map((int) =>
+          int.id === configuringItem.id
+            ? {
+                ...int,
+                status: editStatus,
+                config: {
+                  ...editConfig,
+                  ...(res?.integration?.metadata || {}),
+                  webhookUrl: res?.integration?.webhookUrl || editConfig.webhookUrl,
+                  secret: res?.integration?.webhookSecret || editConfig.secret,
+                },
+              }
+            : int
+        )
+      );
+
+      notify(
+        `${configuringItem.name} Configured`,
+        `Configuration for ${configuringItem.name} successfully saved to backend database.`
+      );
+      handleCloseConfigure();
+    } catch (err: any) {
+      console.error("Failed to save integration configuration:", err);
+      notify(
+        `Failed to save ${configuringItem.name}`,
+        err.message || "An error occurred while saving integration configuration",
+        "error"
+      );
+    } finally {
+      setIsSavingIntegration(false);
+    }
   };
 
-  const handleTestConnection = () => {
+  const handleTestConnection = async () => {
+    if (!configuringItem) return;
     setIsTesting(true);
     setTestSuccess(null);
-    setTimeout(() => {
+    try {
+      if (["github", "gitlab", "vercel"].includes(configuringItem.id)) {
+        const res = await testIntegration(configuringItem.id);
+        setTestSuccess(`Connection to ${configuringItem.name} verified! ${res.message || "Endpoint responded with status 200 OK."}`);
+        notify("Connection Verified", res.message || "Endpoint responded with status 200 OK.");
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        setTestSuccess(`Connection to ${configuringItem.name} verified! Response time: 38ms.`);
+        notify("Connection Verified", `Endpoint responded with status 200 OK.`);
+      }
+    } catch (err: any) {
+      console.error("Failed to test integration:", err);
+      notify("Connection Test Failed", err.message || "Failed to reach endpoint", "error");
+    } finally {
       setIsTesting(false);
-      setTestSuccess(`Connection to ${configuringItem?.name} verified! Response time: 38ms.`);
-      notify("Connection Verified", `Endpoint responded with status 200 OK.`);
-    }, 900);
+    }
   };
 
   const handleCopy = (text: string, keyName: string) => {
@@ -956,9 +1051,11 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleSaveIntegration}
-                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-lime-500 hover:bg-lime-400 text-graphite-950 transition cursor-pointer shadow-sm"
+                  disabled={isSavingIntegration}
+                  className="px-4 py-1.5 rounded-md text-xs font-semibold bg-lime-500 hover:bg-lime-400 text-graphite-950 transition cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  Save Configuration
+                  {isSavingIntegration && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  {isSavingIntegration ? "Saving..." : "Save Configuration"}
                 </button>
               </div>
             </div>

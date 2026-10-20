@@ -152,3 +152,67 @@ export async function getIntegrations() {
 export async function testIntegration(provider: string) {
   return apiFetch<any>(`/workflows/integrations/${provider}/test`, { method: "POST" });
 }
+
+export async function updateIntegration(idOrProvider: string, data: any) {
+  return apiFetch<{ success: boolean; message?: string; integration: any }>(
+    `/workflows/integrations/${idOrProvider}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+/* ── Repository Connection ───────────────────────────── */
+
+export interface ConnectedRepo {
+  owner: string;
+  repo: string;
+  url: string;
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+  description: string | null;
+  language: string | null;
+  stars: number;
+  connectedAt: string;
+  hasToken: boolean;
+}
+
+export interface ConnectRepoResponse {
+  success: boolean;
+  repo: ConnectedRepo;
+  githubData: {
+    name: string;
+    full_name: string;
+    private: boolean;
+    default_branch: string;
+    description: string | null;
+    html_url: string;
+    language: string | null;
+    stargazers_count: number;
+  };
+}
+
+export async function connectRepository(repoUrl: string, token?: string) {
+  return apiFetch<ConnectRepoResponse>(
+    "/workflows/integrations/github/connect-repo",
+    {
+      method: "POST",
+      body: JSON.stringify({ repoUrl, token: token || undefined }),
+    }
+  );
+}
+
+export async function getConnectedRepos() {
+  return apiFetch<{ repos: ConnectedRepo[] }>(
+    "/workflows/integrations/github/repos"
+  );
+}
+
+export async function disconnectRepository(owner: string, repo: string) {
+  return apiFetch<{ success: boolean; message: string }>(
+    `/workflows/integrations/github/repos/${owner}/${repo}`,
+    { method: "DELETE" }
+  );
+}

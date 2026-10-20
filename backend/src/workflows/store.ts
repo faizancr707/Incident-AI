@@ -11,6 +11,7 @@ import {
   HumanApproval,
   IntegrationConfig,
 } from "./types";
+import { db, isMockDB } from "../db";
 
 /**
  * In-memory workflow execution store.
@@ -76,6 +77,10 @@ export class WorkflowStore {
 
     for (const integration of defaultIntegrations) {
       this.integrations.set(integration.id, integration);
+    }
+
+    if (db && db.data && !db.data.integrations) {
+      db.data.integrations = [...defaultIntegrations];
     }
   }
 
@@ -409,22 +414,139 @@ export class WorkflowStore {
     return this.getAllIntegrations();
   }
 
-  updateIntegration(id: string, updates: Partial<IntegrationConfig>): IntegrationConfig | undefined {
-    const existing = this.integrations.get(id);
+  updateIntegration(
+    idOrProvider: string,
+    updates: (Omit<Partial<IntegrationConfig>, "status"> & { status?: string }) & Record<string, any>
+  ): IntegrationConfig | undefined {
+    let existing = this.integrations.get(idOrProvider);
+    let storeKey = idOrProvider;
+
     if (!existing) {
-      logger.warn(`Integration not found: ${id}`);
-      return undefined;
+      for (const [key, item] of this.integrations.entries()) {
+        if (item.provider === idOrProvider || item.id === idOrProvider) {
+          existing = item;
+          storeKey = key;
+          break;
+        }
+      }
+    }
+
+    if (!existing) {
+      // Auto-provision if provider is recognized
+      const newId = `integration-${idOrProvider}`;
+      existing = {
+        id: newId,
+        provider: idOrProvider as any,
+        name: `${idOrProvider.charAt(0).toUpperCase() + idOrProvider.slice(1)} Webhooks`,
+        enabled: true,
+        webhookUrl: `/api/webhooks/${idOrProvider}`,
+        events: [],
+        status: "active",
+        metadata: {},
+      };
+      storeKey = newId;
+    }
+
+    // Normalize status: support both 'connected'/'disconnected' and 'active'/'inactive'
+    let normalizedStatus: "active" | "inactive" | "error" = existing.status;
+    if (updates.status === "connected" || updates.status === "active") {
+      normalizedStatus = "active";
+    } else if (updates.status === "disconnected" || updates.status === "inactive") {
+      normalizedStatus = "inactive";
+    } else if (updates.status === "error") {
+      normalizedStatus = "error";
+    }
+
+    const isEnabled =
+      updates.enabled !== undefined
+        ? Boolean(updates.enabled)
+        : normalizedStatus === "active";
+
+    const webhookSecret =
+      updates.webhookSecret !== undefined
+        ? updates.webhookSecret
+        : updates.secret !== undefined
+        ? updates.secret
+        : existing.webhookSecret;
+
+    const webhookUrl = updates.webhookUrl || existing.webhookUrl;
+    const events = Array.isArray(updates.events) ? updates.events : existing.events;
+    const name = updates.name || existing.name;
+
+    const mergedMetadata: Record<string, unknown> = {
+      ...(existing.metadata || {}),
+      ...(updates.metadata || {}),
+      ...(updates.config || {}),
+      lastSavedAt: new Date().toISOString(),
+    };
+
+    if (updates.repositoryScope) {
+      mergedMetadata.repositoryScope = updates.repositoryScope;
     }
 
     const updated: IntegrationConfig = {
       ...existing,
-      ...updates,
-      id: existing.id,
-      provider: existing.provider,
+      name,
+      enabled: isEnabled,
+      status: normalizedStatus,
+      webhookSecret,
+      webhookUrl,
+      events,
+      metadata: mergedMetadata,
+      lastEventAt: updates.lastEventAt || existing.lastEventAt,
     };
 
-    this.integrations.set(id, updated);
-    logger.info(`Updated integration config: ${id} (${updated.provider}) enabled=${updated.enabled}`);
+    this.integrations.set(storeKey, updated);
+
+    // Database persistence (MockDB or PostgreSQL)
+    try {
+      if (db) {
+        if (db.data) {
+          if (!db.data.integrations) {
+            db.data.integrations = [];
+          }
+          const existingIdx = db.data.integrations.findIndex(
+            (i: any) => i.id === updated.id || i.provider === updated.provider
+          );
+          if (existingIdx !== -1) {
+            db.data.integrations[existingIdx] = updated;
+          } else {
+            db.data.integrations.push(updated);
+          }
+        } else if (!isMockDB && typeof db.query === "function") {
+          db.query(
+            `INSERT INTO integrations (id, provider, name, enabled, webhook_url, webhook_secret, events, status, metadata, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+             ON CONFLICT (id) DO UPDATE SET
+               name = EXCLUDED.name,
+               enabled = EXCLUDED.enabled,
+               webhook_url = EXCLUDED.webhook_url,
+               webhook_secret = EXCLUDED.webhook_secret,
+               events = EXCLUDED.events,
+               status = EXCLUDED.status,
+               metadata = EXCLUDED.metadata,
+               updated_at = NOW()`,
+            [
+              updated.id,
+              updated.provider,
+              updated.name,
+              updated.enabled,
+              updated.webhookUrl,
+              updated.webhookSecret || null,
+              JSON.stringify(updated.events),
+              updated.status,
+              JSON.stringify(updated.metadata || {}),
+            ]
+          ).catch((err: any) => {
+            logger.warn("Failed to persist integration to PostgreSQL database table (non-blocking)", { error: err.message });
+          });
+        }
+      }
+    } catch (persistErr: any) {
+      logger.warn("Error during integration database persistence (non-blocking)", { error: persistErr.message });
+    }
+
+    logger.info(`Updated integration config: ${updated.id} (${updated.provider}) status=${updated.status} enabled=${updated.enabled}`);
     return updated;
   }
 
