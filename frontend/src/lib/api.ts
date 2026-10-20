@@ -48,6 +48,18 @@ export async function login(email: string, password: string): Promise<{ token: s
   });
 }
 
+export async function register(
+  name: string,
+  email: string,
+  password: string,
+  team?: string
+): Promise<{ token: string; user: AuthUser }> {
+  return apiFetch<{ token: string; user: AuthUser }>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ name, email, password, team }),
+  });
+}
+
 export async function logout(): Promise<void> {
   await apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
   localStorage.removeItem("auth_token");

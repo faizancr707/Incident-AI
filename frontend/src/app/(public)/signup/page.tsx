@@ -4,22 +4,41 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldAlert, UserPlus } from 'lucide-react';
+import { useAuth } from '@/components/auth/auth-context';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const { register } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In this demo, we do not have a real backend registration yet, 
-    // so we'll just redirect the user to login to use the demo accounts.
-    setMessage('Demo mode: Registration is simulated. Please log in using the demo accounts.');
-    setTimeout(() => {
-      router.push('/login');
-    }, 2000);
+    setMessage('');
+    setIsError(false);
+    setSubmitting(true);
+
+    try {
+      const res = await register(name, email, password);
+      if (res.success) {
+        setMessage('Account created successfully! Redirecting to dashboard...');
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1200);
+      } else {
+        setIsError(true);
+        setMessage(res.error || 'Registration failed');
+      }
+    } catch {
+      setIsError(true);
+      setMessage('Failed to connect to registration service.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -40,7 +59,13 @@ export default function SignupPage() {
         <div className="bg-porcelain-50 py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-porcelain-200">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {message && (
-              <div className="p-3 bg-signal-50 border border-signal-200 text-signal-700 rounded-lg text-sm">
+              <div
+                className={`p-3 border rounded-lg text-sm ${
+                  isError
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}
+              >
                 {message}
               </div>
             )}
@@ -102,10 +127,11 @@ export default function SignupPage() {
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-lg border border-transparent bg-lime-500 py-2.5 px-4 text-sm font-semibold text-graphite-950 shadow-sm hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 transition-colors gap-2 items-center"
+                disabled={submitting}
+                className="flex w-full justify-center rounded-lg border border-transparent bg-lime-500 py-2.5 px-4 text-sm font-semibold text-graphite-950 shadow-sm hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 transition-colors gap-2 items-center disabled:opacity-60"
               >
                 <UserPlus className="w-4 h-4" />
-                Sign Up
+                {submitting ? 'Creating Account...' : 'Sign Up'}
               </button>
             </div>
           </form>

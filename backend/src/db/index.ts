@@ -29,10 +29,19 @@ export let isMockDB = false;
 
 if (process.env.DATABASE_URL) {
   try {
-    db = new Pool({ connectionString: process.env.DATABASE_URL });
-    logger.info("Connected to PostgreSQL");
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    db = pool;
+    pool.query("SELECT 1")
+      .then(() => {
+        logger.info("Connected to PostgreSQL");
+        isMockDB = false;
+      })
+      .catch((err) => {
+        logger.warn("PostgreSQL connection verification failed, using MockDB fallback", { error: err.message });
+        isMockDB = true;
+      });
   } catch (err) {
-    logger.error("Failed to connect to PostgreSQL, falling back to MockDB", { err });
+    logger.error("Failed to initialize PostgreSQL pool, falling back to MockDB", { err });
     db = new MockDB();
     isMockDB = true;
   }

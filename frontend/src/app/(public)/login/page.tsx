@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/components/auth/auth-context';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ShieldAlert, LogIn } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,17 +11,26 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitting(true);
     
-    if (login(email, password)) {
-      router.push('/dashboard');
-    } else {
-      setError('Invalid credentials. Please use a demo account.');
+    try {
+      const ok = await login(email, password);
+      if (ok) {
+        router.push('/dashboard');
+      } else {
+        setError('Invalid credentials. Please verify your email and password.');
+      }
+    } catch {
+      setError('Unable to reach authentication service. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -86,37 +96,54 @@ export default function LoginPage() {
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-lg border border-transparent bg-lime-500 py-2.5 px-4 text-sm font-semibold text-graphite-950 shadow-sm hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 transition-colors gap-2 items-center"
+                disabled={submitting}
+                className="flex w-full justify-center rounded-lg border border-transparent bg-lime-500 py-2.5 px-4 text-sm font-semibold text-graphite-950 shadow-sm hover:bg-lime-400 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2 transition-colors gap-2 items-center disabled:opacity-60"
               >
                 <LogIn className="w-4 h-4" />
-                Sign In
+                {submitting ? 'Authenticating...' : 'Sign In'}
               </button>
             </div>
           </form>
 
-          <div className="mt-8">
+          <div className="mt-6 text-center text-xs text-graphite-500">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-lime-600 hover:text-lime-500 font-semibold underline">
+              Create an account
+            </Link>
+          </div>
+
+          <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-porcelain-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-porcelain-50 px-2 text-graphite-500">Demo Credentials</span>
+                <span className="bg-porcelain-50 px-2 text-graphite-500 text-xs">Quick Fill Credentials</span>
               </div>
             </div>
 
-            <div className="mt-6 bg-white border border-porcelain-200 rounded-lg p-4 text-sm">
-              <ul className="space-y-3 text-graphite-600">
-                <li className="flex justify-between items-center">
+            <div className="mt-4 bg-white border border-porcelain-200 rounded-lg p-3 text-xs">
+              <ul className="space-y-2 text-graphite-600">
+                <li
+                  onClick={() => { setEmail('admin@incident.ai'); setPassword('admin123'); }}
+                  className="flex justify-between items-center p-1.5 hover:bg-porcelain-50 rounded cursor-pointer transition"
+                >
                   <span><strong className="text-graphite-900">Owner:</strong> admin@incident.ai</span>
-                  <code className="text-xs bg-porcelain-100 px-1.5 py-0.5 rounded">admin123</code>
+                  <code className="text-[11px] bg-porcelain-100 px-1.5 py-0.5 rounded text-graphite-700">admin123</code>
                 </li>
-                <li className="flex justify-between items-center">
-                  <span><strong className="text-graphite-900">Eng:</strong> engineer@incident.ai</span>
-                  <code className="text-xs bg-porcelain-100 px-1.5 py-0.5 rounded">eng123</code>
+                <li
+                  onClick={() => { setEmail('engineer@incident.ai'); setPassword('eng123'); }}
+                  className="flex justify-between items-center p-1.5 hover:bg-porcelain-50 rounded cursor-pointer transition"
+                >
+                  <span><strong className="text-graphite-900">Engineer:</strong> engineer@incident.ai</span>
+                  <code className="text-[11px] bg-porcelain-100 px-1.5 py-0.5 rounded text-graphite-700">eng123</code>
                 </li>
-                <li className="flex justify-between items-center">
-                  <span><strong className="text-graphite-900">View:</strong> viewer@incident.ai</span>
-                  <code className="text-xs bg-porcelain-100 px-1.5 py-0.5 rounded">view123</code>
+                <li
+                  onClick={() => { setEmail('viewer@incident.ai'); setPassword('view123'); }}
+                  className="flex justify-between items-center p-1.5 hover:bg-porcelain-50 rounded cursor-pointer transition"
+                >
+                  <span><strong className="text-graphite-900">Viewer:</strong> viewer@incident.ai</span>
+                  <code className="text-[11px] bg-porcelain-100 px-1.5 py-0.5 rounded text-graphite-700">view123</code>
                 </li>
               </ul>
             </div>
