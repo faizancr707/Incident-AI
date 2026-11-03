@@ -8,8 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { getIncidents } from "@/lib/api";
-import { kpiMetrics, serviceHealth } from "@/lib/mock-data";
+import { getIncidents, getKpiMetrics, getServicesHealth } from "@/lib/api";
 import Link from "next/link";
 
 const sparklineData = Array.from({ length: 20 }).map(() => ({ value: Math.random() * 100 }));
@@ -18,6 +17,8 @@ const downTrend = Array.from({ length: 20 }).map((_, i) => ({ value: 100 - i * 5
 
 export default function DashboardPage() {
   const { data: incidents = [], isLoading: isLoading_incidents } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
+  const { data: kpiMetrics, isLoading: isLoading_kpi } = useQuery({ queryKey: ['kpiMetrics'], queryFn: getKpiMetrics });
+  const { data: serviceHealthData = [], isLoading: isLoading_services } = useQuery({ queryKey: ['servicesHealth'], queryFn: getServicesHealth });
 
   const activeIncidents = incidents.filter(i => i.status !== "resolved").slice(0, 3);
   const recentInvestigations = incidents.filter(i => i.aiInvestigation && i.aiInvestigation.confidence).slice(0, 3);
@@ -32,7 +33,7 @@ export default function DashboardPage() {
     show: { opacity: 1, y: 0 }
   };
 
-    if (isLoading_incidents) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>;
+    if (isLoading_incidents || isLoading_kpi || isLoading_services) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>;
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-screen bg-porcelain-50">
@@ -47,12 +48,12 @@ export default function DashboardPage() {
         animate="show" 
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4"
       >
-        <KpiCard title="Active Incidents" value={kpiMetrics.activeIncidents} icon={Activity} color="signal" data={sparklineData} />
-        <KpiCard title="Critical Incidents" value={kpiMetrics.criticalIncidents} icon={ShieldAlert} color="champagne" data={sparklineData} />
-        <KpiCard title="MTTD" value={`${kpiMetrics.mttd}m`} icon={Zap} color="signal" data={downTrend} />
-        <KpiCard title="MTTR" value={`${kpiMetrics.mttr}m`} icon={Clock} color="signal" data={downTrend} />
-        <KpiCard title="Investigations Running" value={kpiMetrics.investigationsRunning} icon={BrainCircuit} color="iris" data={sparklineData} />
-        <KpiCard title="AI-Assisted Resolutions" value={kpiMetrics.aiAssistedResolutions} icon={CheckCircle2} color="lime" data={upTrend} />
+        <KpiCard title="Active Incidents" value={kpiMetrics?.activeIncidents ?? 0} icon={Activity} color="signal" data={sparklineData} />
+        <KpiCard title="Critical Incidents" value={kpiMetrics?.criticalIncidents ?? 0} icon={ShieldAlert} color="champagne" data={sparklineData} />
+        <KpiCard title="MTTD" value={`${kpiMetrics?.mttd ?? 0}m`} icon={Zap} color="signal" data={downTrend} />
+        <KpiCard title="MTTR" value={`${kpiMetrics?.mttr ?? 0}m`} icon={Clock} color="signal" data={downTrend} />
+        <KpiCard title="Investigations Running" value={kpiMetrics?.investigationsRunning ?? 0} icon={BrainCircuit} color="iris" data={sparklineData} />
+        <KpiCard title="AI-Assisted Resolutions" value={kpiMetrics?.aiAssistedResolutions ?? 0} icon={CheckCircle2} color="lime" data={upTrend} />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -112,7 +113,7 @@ export default function DashboardPage() {
         <motion.div variants={container} initial="hidden" animate="show" className="space-y-4">
           <h2 className="text-lg font-medium text-graphite-900">Service Health</h2>
           <div className="grid grid-cols-1 gap-3">
-            {serviceHealth.map((service, i) => (
+            {serviceHealthData.map((service, i) => (
               <motion.div key={i} variants={item} className="surface-card bg-white border border-porcelain-300 rounded-xl p-4 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className={cn(

@@ -11,8 +11,9 @@ import {
   Maximize2, Minimize2, Check, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { incidents, investigationSteps, evidence, rootCauseAnalysis } from "@/lib/mock-data";
-import { Evidence } from '@/lib/types';
+import { useQuery } from '@tanstack/react-query';
+import { getIncidents, getInvestigationSteps, getInvestigationEvidence, getInvestigationRootCause } from '@/lib/api';
+import { Evidence, InvestigationStep, RootCauseAnalysis } from '@/lib/types';
 import { TabNavigation, TabItem } from '@/components/ui/tab-navigation';
 import { ServiceNodeCard } from '@/components/ui/service-node-card';
 import { FlowConnector, BranchConnector } from '@/components/ui/flow-connector';
@@ -163,6 +164,21 @@ export default function InvestigationWorkspace() {
     }
   ]);
   const [isAiThinking, setIsAiThinking] = useState(false);
+
+  // ── Live Data Queries ──────────────────────────────────
+  const { data: incidents = [] } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
+  const { data: investigationSteps = [] } = useQuery({
+    queryKey: ['investigationSteps', selectedIncidentId],
+    queryFn: () => getInvestigationSteps(selectedIncidentId),
+  });
+  const { data: evidence = [] } = useQuery({
+    queryKey: ['investigationEvidence', selectedIncidentId],
+    queryFn: () => getInvestigationEvidence(selectedIncidentId),
+  });
+  const { data: rootCauseAnalysis } = useQuery({
+    queryKey: ['investigationRootCause', selectedIncidentId],
+    queryFn: () => getInvestigationRootCause(selectedIncidentId),
+  });
 
   // Safe toast
   let toast: ((props: any) => void) | undefined;
@@ -349,7 +365,7 @@ export default function InvestigationWorkspace() {
       {/* ── KPI Strip ────────────────────────────────────────── */}
       <div className="bg-white border-b border-porcelain-200 px-4 sm:px-6 py-2.5 flex items-center gap-3 overflow-x-auto shrink-0 scrollbar-none">
         {[
-          { label: 'Confidence Score', value: `${rootCauseAnalysis.confidence}%`, icon: Shield, color: 'text-lime-700', bg: 'bg-lime-50/70 border-lime-200' },
+          { label: 'Confidence Score', value: `${rootCauseAnalysis?.confidence ?? 0}%`, icon: Shield, color: 'text-lime-700', bg: 'bg-lime-50/70 border-lime-200' },
           { label: 'Correlated Evidence', value: `${evidence.length} pieces`, icon: Eye, color: 'text-blue-700', bg: 'bg-blue-50/70 border-blue-200' },
           { label: 'Time to Root Cause', value: `${incident.duration}m`, icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50/70 border-amber-200' },
           { label: 'Agents Orchestrated', value: '7 agents', icon: BrainCircuit, color: 'text-purple-700', bg: 'bg-purple-50/70 border-purple-200' },
@@ -425,7 +441,7 @@ export default function InvestigationWorkspace() {
                         {step.findings && step.findings.length > 0 && (
                           <div className="mt-2 bg-porcelain-50/80 border border-porcelain-200/80 rounded-lg p-2">
                             <ul className="space-y-1">
-                              {step.findings.map((f, i) => (
+                              {step.findings.map((f: string, i: number) => (
                                 <li key={i} className="flex items-start gap-1.5">
                                   <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
                                   <span className="text-[10px] text-graphite-700 leading-snug">{f}</span>

@@ -5,7 +5,8 @@ import {
   Server, Activity, Shield, Database, Network,
   Layers, BarChart2, Filter, CheckCircle2, AlertTriangle, AlertCircle
 } from "lucide-react";
-import { serviceHealth } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { getServicesHealth } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { TabNavigation, TabItem } from "@/components/ui/tab-navigation";
@@ -25,6 +26,7 @@ const generateSparkline = (status: string) => {
 export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState("topology");
   const [environment, setEnvironment] = useState("Production");
+  const { data: serviceHealth = [], isLoading } = useQuery({ queryKey: ['servicesHealth'], queryFn: getServicesHealth });
 
   const tabs: TabItem[] = [
     { id: "topology", label: "Service Topology", icon: Network },
@@ -101,6 +103,10 @@ export default function ServicesPage() {
 
       {/* ── Main Content Area ──────────────────────────── */}
       <div className="flex-1 overflow-auto p-6">
+        {isLoading ? (
+          <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>
+        ) : (
+          <>
         {activeTab === "topology" && (
           <div className="max-w-5xl mx-auto flex flex-col items-center py-4">
             {/* Summary counters strip */}
@@ -273,6 +279,8 @@ export default function ServicesPage() {
               </div>
             ))}
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

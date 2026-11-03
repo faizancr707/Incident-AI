@@ -1,70 +1,68 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Download, Share2, AlertCircle, Clock, ShieldAlert, FileText, CheckCircle2, ChevronRight, BarChart3, Database } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getIncidents } from "@/lib/api";
-import { incidents, investigationSteps, rootCauseAnalysis } from "@/lib/mock-data";
+import { getIncidents, getIncidentReport } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { IncidentReport } from "@/lib/types";
 
-// Construct report data inline
-const reportData: IncidentReport = {
-  incidentId: "INC-4821",
-  executiveSummary: "At 14:32 UTC, the Payment API experienced a severe latency spike and elevated error rates, causing payment processing degradation. The incident was detected by anomaly detection systems and automatically investigated by AI agents. The root cause was identified as an N+1 query pattern introduced in the UserService during the v1.8.4 deployment 18 minutes prior. The incident was mitigated by reverting the data access pattern and resolved entirely after 18 minutes of impact.",
-  impact: {
-    description: "Payment processing degraded — 23% of transactions failing due to timeout.",
-    requestsAffected: 14832,
-    usersAffected: 3200,
-    revenueImpact: "~$45,000"
-  },
-  timeline: [
-    { timestamp: new Date(Date.now() - 18 * 60000), event: "Anomaly detection triggered on Payment API latency. Incident INC-4821 created." },
-    { timestamp: new Date(Date.now() - 17 * 60000), event: "Log Analyst agent identified 847 timeout errors in UserService calls." },
-    { timestamp: new Date(Date.now() - 15 * 60000), event: "Trace Analyst agent sampled distributed traces, pointing to UserService database queries." },
-    { timestamp: new Date(Date.now() - 13 * 60000), event: "GitHub Analyst agent correlated issue with deployment v1.8.4 (18m prior)." },
-    { timestamp: new Date(Date.now() - 10 * 60000), event: "Database Analyst agent confirmed query count increased 4.7× (N+1 pattern)." },
-    { timestamp: new Date(Date.now() - 7 * 60000), event: "Root Cause Analyst generated hypothesis linking deployment v1.8.4 to latency." },
-    { timestamp: new Date(Date.now() - 2 * 60000), event: "Mitigation applied: rolled back UserService to v1.8.3." },
-    { timestamp: new Date(), event: "Incident resolved. Metrics returned to baseline." }
-  ],
-  rootCause: rootCauseAnalysis,
-  resolution: {
-    steps: [
-      "Rolled back UserService deployment from v1.8.4 to v1.8.3",
-      "Cleared application-level query caches",
-      "Monitored database CPU and connection pool metrics to confirm recovery"
-    ],
-    resolvedBy: "Sarah Chen (Automated Runbook)",
-    resolvedAt: new Date()
-  },
-  prevention: [
-    "Re-implement UserService batch query pattern using DataLoader",
-    "Add query count threshold alerts to data access layer",
-    "Enforce load testing in CI/CD pipeline for data access changes"
-  ],
-  aiInvestigationTrace: investigationSteps,
-  confidence: 92,
-  limitations: [
-    "Could not definitively measure exact number of lost transactions due to missing telemetry in edge gateway.",
-    "Database query samples were limited to 10% sampling rate."
-  ],
-  sourceReferences: [
-    { title: "Deployment v1.8.4", url: "https://github.com/org/repo/deployments/184", type: "deployment" },
-    { title: "PR #1847", url: "https://github.com/org/repo/pull/1847", type: "code_change" },
-    { title: "INC-4102 Postmortem", url: "/knowledge/kb5", type: "postmortem" }
-  ]
-};
-
 export default function ReportsPage() {
-  const { data: incidentList = incidents, isLoading } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
+  const { data: incidentList = [], isLoading: isLoadingIncidents } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
-  const formatDate = (d: Date) => d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC';
+  // Auto-select the first incident if none selected
+  const activeIncidentId = selectedIncidentId || (incidentList.length > 0 ? incidentList[0].id : null);
 
-    if (isLoading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>;
+  const { data: reportData, isLoading: isLoadingReport, isError } = useQuery({
+    queryKey: ['report', activeIncidentId],
+    queryFn: () => getIncidentReport(activeIncidentId!),
+    enabled: !!activeIncidentId,
+  });
+
+  const formatDate = (d: Date | string) => {
+    const date = typeof d === "string" ? new Date(d) : d;
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC';
+  };
+
+  if (isLoadingIncidents) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>;
+
+  if (!activeIncidentId || incidentList.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-graphite-500">
+        <FileText className="w-12 h-12 text-graphite-300" />
+        <p className="text-lg font-medium">No incidents available for reports</p>
+        <p className="text-sm">Reports will appear here once incidents are created and investigated.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-porcelain-50 overflow-auto">
+      {/* Incident Selector */}
+      <div className="bg-white border-b border-porcelain-200 px-6 py-3 flex items-center gap-3 shrink-0 shadow-sm">
+        <label className="text-sm font-medium text-graphite-700">Select Incident:</label>
+        <select
+          value={activeIncidentId || ""}
+          onChange={(e) => setSelectedIncidentId(e.target.value)}
+          className="border border-porcelain-300 rounded-xl text-xs py-2 px-3 bg-white text-graphite-700 focus:outline-none focus:ring-2 focus:ring-signal-500/20 shadow-sm font-medium"
+        >
+          {incidentList.map((inc) => (
+            <option key={inc.id} value={inc.id}>{inc.id} — {inc.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoadingReport ? (
+        <div className="flex-1 flex justify-center items-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>
+      ) : isError || !reportData ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-graphite-500">
+          <AlertCircle className="w-10 h-10 text-champagne-500" />
+          <p className="text-sm font-medium">Could not load report for {activeIncidentId}</p>
+          <p className="text-xs">The incident may not have been investigated yet.</p>
+        </div>
+      ) : (
+      <>
       {/* Report Header - Dark theme for app context */}
       <div className="sticky top-0 z-10 bg-graphite-950 flex items-center justify-between p-4 px-6 border-b border-graphite-800 shrink-0">
         <h1 className="text-xl font-medium text-porcelain-50">Incident Report — {reportData.incidentId}</h1>
@@ -89,7 +87,7 @@ export default function ReportsPage() {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight text-graphite-950 font-serif">Postmortem Report</h2>
-                <p className="text-lg text-graphite-500 mt-1">{reportData.incidentId} • Payment API Latency Spike</p>
+                <p className="text-lg text-graphite-500 mt-1">{reportData.incidentId} • Incident Postmortem</p>
               </div>
               <div className="text-right text-sm text-graphite-500">
                 <p>Date: {new Date().toLocaleDateString()}</p>
@@ -244,6 +242,8 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

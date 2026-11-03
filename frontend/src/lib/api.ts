@@ -1,7 +1,7 @@
 import {
   Incident, LogEntry, MetricSeries, TraceSpan, Deployment,
   AIAgent, EvaluationMetric, KnowledgeEntry,
-  ServiceHealth,
+  ServiceHealth, IncidentReport,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -102,6 +102,57 @@ export async function getTraces(): Promise<TraceSpan[]> {
 
 export async function getServices(): Promise<ServiceHealth[]> {
   return apiFetch<ServiceHealth[]>("/health/services");
+}
+
+/* ── KPI & Telemetry ─────────────────────────────────── */
+
+export interface KpiMetrics {
+  activeIncidents: number;
+  criticalIncidents: number;
+  mttd: number;
+  mttr: number;
+  investigationsRunning: number;
+  aiAssistedResolutions: number;
+  totalIncidents30d: number;
+  aiAccuracy: number;
+}
+
+export async function getKpiMetrics(): Promise<KpiMetrics> {
+  const data = await apiFetch<{ kpiMetrics: KpiMetrics }>("/metrics/kpi");
+  return data.kpiMetrics;
+}
+
+export async function getServicesHealth(): Promise<ServiceHealth[]> {
+  return apiFetch<ServiceHealth[]>("/health/services");
+}
+
+/* ── Reports ──────────────────────────────────────────── */
+
+export async function getIncidentReport(incidentId: string): Promise<IncidentReport> {
+  const data = await apiFetch<{ report: IncidentReport }>(`/reports/${incidentId}`);
+  return data.report;
+}
+
+/* ── Investigations ──────────────────────────────────── */
+
+export async function getInvestigation(incidentId: string): Promise<any> {
+  const data = await apiFetch<{ investigation: any }>(`/investigations/${incidentId}`);
+  return data.investigation;
+}
+
+export async function getInvestigationSteps(incidentId: string): Promise<any[]> {
+  const data = await apiFetch<{ steps: any[] }>(`/investigations/${incidentId}/steps`);
+  return data.steps;
+}
+
+export async function getInvestigationEvidence(incidentId: string): Promise<any[]> {
+  const data = await apiFetch<{ evidence: any[] }>(`/investigations/${incidentId}/evidence`);
+  return data.evidence;
+}
+
+export async function getInvestigationRootCause(incidentId: string): Promise<any> {
+  const data = await apiFetch<{ rootCause: any }>(`/investigations/${incidentId}/root-cause`);
+  return data.rootCause;
 }
 
 /* ── Intelligence ─────────────────────────────────────── */

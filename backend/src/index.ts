@@ -20,6 +20,7 @@ import { evaluationRoutes } from "./routes/evaluations";
 import { healthRoutes } from "./routes/health";
 import { webhookRoutes } from "./routes/webhooks";
 import { workflowRoutes, integrationRoutes } from "./routes/workflows";
+import { reportRoutes } from "./routes/reports";
 
 // Initialize OpenTelemetry before anything else
 setupTelemetry();
@@ -65,6 +66,7 @@ app.use("/api/traces", traceRoutes);
 app.use("/api/deployments", deploymentRoutes);
 app.use("/api/knowledge", knowledgeRoutes);
 app.use("/api/evaluations", evaluationRoutes);
+app.use("/api/reports", reportRoutes);
 
 /* ── Error Handler ─────────────────────────────────────── */
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {

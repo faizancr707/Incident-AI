@@ -2,7 +2,7 @@ import { Pool } from "pg";
 import { logger } from "../lib/logger";
 
 // Import mock data to seed the fallback DB
-import { incidents, logs, metrics, traceSpans, deployments, agents, knowledgeEntries, evaluationMetrics } from "./mock-data";
+import { incidents, logs, metrics, traceSpans, deployments, agents, knowledgeEntries, evaluationMetrics, serviceHealth } from "./mock-data";
 
 
 // Create an in-memory data store for fallback
@@ -15,7 +15,8 @@ class MockDB {
     deployments: deployments || [],
     agents: agents || [],
     knowledge: knowledgeEntries || [],
-    evaluations: evaluationMetrics || []
+    evaluations: evaluationMetrics || [],
+    serviceHealth: serviceHealth || []
   };
 
   async query(text: string, params?: any[]) {

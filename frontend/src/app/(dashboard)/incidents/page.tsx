@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getIncidents } from "@/lib/api";
-import { incidents as fallbackIncidents } from "@/lib/mock-data";
 import { Incident } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -29,7 +28,7 @@ export default function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
-  // Robust array extraction that handles any data shape (array, wrapper object, or fallback)
+  // Robust array extraction that handles any data shape (array, wrapper object, or empty state)
   const displayIncidents: Incident[] = useMemo(() => {
     if (Array.isArray(rawData) && rawData.length > 0) {
       return rawData;
@@ -37,7 +36,7 @@ export default function IncidentsPage() {
     if (rawData && typeof rawData === "object" && Array.isArray((rawData as any).incidents)) {
       return (rawData as any).incidents;
     }
-    return fallbackIncidents;
+    return [];
   }, [rawData]);
 
   // Tab counts
