@@ -2,13 +2,14 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getIncidents } from "@/lib/api";
+import { getIncidents, createIncident } from "@/lib/api";
 import { Incident } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
   Search, Filter, BrainCircuit, CheckCircle2, AlertTriangle,
-  Activity, ShieldAlert, Clock, ArrowRight, RefreshCw, Layers
+  Activity, ShieldAlert, Clock, ArrowRight, RefreshCw, Layers,
+  Plus, X, Zap
 } from "lucide-react";
 import { TabNavigation, TabItem } from "@/components/ui/tab-navigation";
 
@@ -27,6 +28,51 @@ export default function IncidentsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
+
+  // Report / Simulate Incident Modal
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newService, setNewService] = useState("Payment API");
+  const [newSeverity, setNewSeverity] = useState<"critical" | "high" | "medium" | "low">("critical");
+  const [newEnvironment, setNewEnvironment] = useState<"production" | "staging" | "development">("production");
+  const [newImpact, setNewImpact] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  const applyPreset = (preset: { title: string; service: string; severity: "critical" | "high" | "medium"; impact: string }) => {
+    setNewTitle(preset.title);
+    setNewService(preset.service);
+    setNewSeverity(preset.severity);
+    setNewImpact(preset.impact);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newService.trim()) {
+      setCreateError("Title and service are required");
+      return;
+    }
+    setCreateError("");
+    setIsSubmitting(true);
+    try {
+      await createIncident({
+        title: newTitle.trim(),
+        service: newService.trim(),
+        severity: newSeverity,
+        environment: newEnvironment,
+        impact: newImpact.trim() || undefined,
+        autoInvestigate: true,
+      });
+      await refetch();
+      setIsCreateModalOpen(false);
+      setNewTitle("");
+      setNewImpact("");
+    } catch (err: any) {
+      setCreateError(err?.message || "Failed to create incident");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Robust array extraction that handles any data shape (array, wrapper object, or empty state)
   const displayIncidents: Incident[] = useMemo(() => {
@@ -131,10 +177,18 @@ export default function IncidentsPage() {
 
           <button
             onClick={() => refetch()}
-            className="p-2 text-graphite-500 hover:text-graphite-800 bg-white border border-porcelain-300 rounded-xl shadow-sm transition-colors"
+            className="p-2 text-graphite-500 hover:text-graphite-800 bg-white border border-porcelain-300 rounded-xl shadow-sm transition-colors cursor-pointer"
             title="Refresh incidents"
           >
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin text-signal-600")} />
+          </button>
+
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Report Incident</span>
           </button>
         </div>
       </div>
@@ -302,6 +356,178 @@ export default function IncidentsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Report / Simulate Incident Modal ────────────── */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-porcelain-300 space-y-4">
+            <div className="flex items-center justify-between border-b border-porcelain-200 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-red-50 border border-red-200 rounded-xl text-red-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-graphite-950 text-base">Report New Incident</h3>
+                  <p className="text-[11px] text-graphite-500">Trigger manual incident or simulate production failure</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-graphite-400 hover:text-graphite-900 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Simulation Presets */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold uppercase text-graphite-400 tracking-wider flex items-center gap-1">
+                <Zap className="w-3 h-3 text-champagne-600" /> One-Click Simulation Presets:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    title: "Stripe Webhook Timeout Spike",
+                    service: "Payment API",
+                    severity: "critical",
+                    impact: "23% checkout transactions timing out on payment processing gateway."
+                  })}
+                  className="text-left p-2 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100/70 transition-colors text-xs cursor-pointer"
+                >
+                  <div className="font-bold text-red-900">Payment Outage</div>
+                  <div className="text-[10px] text-red-700">Critical · Payment API</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    title: "Redis Connection Pool Starvation",
+                    service: "Auth Service",
+                    severity: "high",
+                    impact: "Session validation latency increased from 2ms to 450ms across all auth routes."
+                  })}
+                  className="text-left p-2 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 transition-colors text-xs cursor-pointer"
+                >
+                  <div className="font-bold text-amber-900">Auth Pool Lock</div>
+                  <div className="text-[10px] text-amber-700">High · Auth Service</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset({
+                    title: "High Memory Allocation in Image Worker",
+                    service: "CDN",
+                    severity: "medium",
+                    impact: "Worker pod restarted due to OOM kill on large image compression payload."
+                  })}
+                  className="text-left p-2 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 transition-colors text-xs cursor-pointer"
+                >
+                  <div className="font-bold text-blue-900">Memory Leak</div>
+                  <div className="text-[10px] text-blue-700">Medium · CDN Service</div>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-3 pt-1">
+              {createError && (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+                  {createError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-graphite-700 mb-1">Incident Title *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Postgres Connection Pool Starvation on /checkout"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 focus:border-signal-500 bg-white text-graphite-900"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-graphite-700 mb-1">Affected Service *</label>
+                  <select
+                    value={newService}
+                    onChange={(e) => setNewService(e.target.value)}
+                    className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 bg-white text-graphite-900 font-medium"
+                  >
+                    <option value="Payment API">Payment API</option>
+                    <option value="User Service">User Service</option>
+                    <option value="Auth Service">Auth Service</option>
+                    <option value="API Gateway">API Gateway</option>
+                    <option value="Order Service">Order Service</option>
+                    <option value="CDN">CDN</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-graphite-700 mb-1">Severity *</label>
+                  <select
+                    value={newSeverity}
+                    onChange={(e) => setNewSeverity(e.target.value as any)}
+                    className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 bg-white text-graphite-900 font-medium"
+                  >
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-graphite-700 mb-1">Environment</label>
+                  <select
+                    value={newEnvironment}
+                    onChange={(e) => setNewEnvironment(e.target.value as any)}
+                    className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 bg-white text-graphite-900 font-medium"
+                  >
+                    <option value="production">Production</option>
+                    <option value="staging">Staging</option>
+                    <option value="development">Development</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-graphite-700 mb-1">AI Autonomous Investigation</label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs text-graphite-700 font-medium">Auto-dispatches 7 agents</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-graphite-700 mb-1">Impact Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Detail symptoms, user impact, or telemetry alerts observed..."
+                  value={newImpact}
+                  onChange={(e) => setNewImpact(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 focus:border-signal-500 bg-white text-graphite-900"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-porcelain-200">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-3 py-2 text-xs text-graphite-600 hover:text-graphite-900 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {isSubmitting ? "Dispatching..." : "Create & Launch Investigation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

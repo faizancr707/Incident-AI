@@ -85,6 +85,34 @@ export async function startInvestigation(incidentId: string): Promise<unknown> {
   return apiFetch(`/incidents/${incidentId}/investigate`, { method: "POST" });
 }
 
+export interface CreateIncidentInput {
+  title: string;
+  service: string;
+  severity?: "critical" | "high" | "medium" | "low";
+  environment?: "production" | "staging" | "development";
+  impact?: string;
+  autoInvestigate?: boolean;
+}
+
+export async function createIncident(
+  data: CreateIncidentInput
+): Promise<{ success: boolean; incident: Incident; message: string }> {
+  return apiFetch<{ success: boolean; incident: Incident; message: string }>("/incidents", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateIncident(
+  id: string,
+  data: Partial<Incident>
+): Promise<{ success: boolean; incident: Incident }> {
+  return apiFetch<{ success: boolean; incident: Incident }>(`/incidents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 /* ── Observability ────────────────────────────────────── */
 
 export async function getLogs(params?: { service?: string; level?: string; search?: string }): Promise<LogEntry[]> {
