@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, Circle, Loader2, Server, Database, GitCommit, FileText,
@@ -166,19 +166,29 @@ export default function InvestigationWorkspace() {
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // ── Live Data Queries ──────────────────────────────────
-  const { data: incidents = [] } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
+  const { data: incidents = [], isLoading: isLoadingIncidents } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
   const { data: investigationSteps = [] } = useQuery({
     queryKey: ['investigationSteps', selectedIncidentId],
     queryFn: () => getInvestigationSteps(selectedIncidentId),
+    enabled: !!selectedIncidentId,
   });
   const { data: evidence = [] } = useQuery({
     queryKey: ['investigationEvidence', selectedIncidentId],
     queryFn: () => getInvestigationEvidence(selectedIncidentId),
+    enabled: !!selectedIncidentId,
   });
   const { data: rootCauseAnalysis } = useQuery({
     queryKey: ['investigationRootCause', selectedIncidentId],
     queryFn: () => getInvestigationRootCause(selectedIncidentId),
+    enabled: !!selectedIncidentId,
   });
+
+  // Auto-sync selectedIncidentId with loaded incidents
+  useEffect(() => {
+    if (incidents.length > 0 && !incidents.some((i) => i.id === selectedIncidentId)) {
+      setSelectedIncidentId(incidents[0].id);
+    }
+  }, [incidents, selectedIncidentId]);
 
   // Safe toast
   let toast: ((props: any) => void) | undefined;
@@ -196,8 +206,8 @@ export default function InvestigationWorkspace() {
   };
 
   const incident = useMemo(() => {
-    return incidents.find((i) => i.id === selectedIncidentId) || incidents[0];
-  }, [selectedIncidentId]);
+    return incidents.find((i) => i.id === selectedIncidentId) || incidents[0] || null;
+  }, [incidents, selectedIncidentId]);
 
   const tabs: TabItem[] = [
     { id: 'Service Map', label: 'Service Map', icon: Server },
@@ -235,13 +245,31 @@ export default function InvestigationWorkspace() {
 
   const handleResolve = () => {
     setIsResolved(true);
-    notify("Incident Resolved", `${incident.id} marked as resolved. Postmortem generated.`);
+    notify("Incident Resolved", `${incident?.id || selectedIncidentId} marked as resolved. Postmortem generated.`);
   };
 
   const filteredEvidence = useMemo(() => {
     if (evidenceFilter === "all") return evidence;
     return evidence.filter(e => e.type === evidenceFilter);
-  }, [evidenceFilter]);
+  }, [evidenceFilter, evidence]);
+
+  if (isLoadingIncidents) {
+    return (
+      <div className="flex justify-center items-center h-full min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div>
+      </div>
+    );
+  }
+
+  if (!incident) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-3 text-graphite-500 p-8">
+        <BrainCircuit className="w-12 h-12 text-graphite-300" />
+        <p className="text-base font-semibold text-graphite-700">No Incidents Found</p>
+        <p className="text-xs text-graphite-500">Create or trigger an incident to start an AI investigation.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-porcelain-100/70 overflow-hidden text-graphite-900">
@@ -270,11 +298,11 @@ export default function InvestigationWorkspace() {
 
               <span className={cn(
                 "text-[10px] font-bold uppercase px-2 py-0.5 rounded-md",
-                incident.severity === "critical" ? "bg-red-100 text-red-700 border border-red-200" :
-                incident.severity === "high" ? "bg-amber-100 text-amber-800 border border-amber-200" :
+                incident?.severity === "critical" ? "bg-red-100 text-red-700 border border-red-200" :
+                incident?.severity === "high" ? "bg-amber-100 text-amber-800 border border-amber-200" :
                 "bg-blue-100 text-blue-700 border border-blue-200"
               )}>
-                {incident.severity}
+                {incident?.severity || "LOW"}
               </span>
 
               {isResolved && (
@@ -284,7 +312,7 @@ export default function InvestigationWorkspace() {
               )}
             </div>
             <p className="text-xs text-graphite-500 mt-0.5">
-              {incident.impact} · Assignee: <span className="font-semibold text-graphite-800">{incident.assignee}</span>
+              {incident?.impact || "Investigating telemetry"} · Assignee: <span className="font-semibold text-graphite-800">{incident?.assignee || "Unassigned"}</span>
             </p>
           </div>
         </div>
@@ -367,9 +395,9 @@ export default function InvestigationWorkspace() {
         {[
           { label: 'Confidence Score', value: `${rootCauseAnalysis?.confidence ?? 0}%`, icon: Shield, color: 'text-lime-700', bg: 'bg-lime-50/70 border-lime-200' },
           { label: 'Correlated Evidence', value: `${evidence.length} pieces`, icon: Eye, color: 'text-blue-700', bg: 'bg-blue-50/70 border-blue-200' },
-          { label: 'Time to Root Cause', value: `${incident.duration}m`, icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50/70 border-amber-200' },
+          { label: 'Time to Root Cause', value: `${incident?.duration || 0}m`, icon: Clock, color: 'text-amber-700', bg: 'bg-amber-50/70 border-amber-200' },
           { label: 'Agents Orchestrated', value: '7 agents', icon: BrainCircuit, color: 'text-purple-700', bg: 'bg-purple-50/70 border-purple-200' },
-          { label: 'Affected Services', value: `${incident.affectedServices?.length || 4} services`, icon: Network, color: 'text-blue-700', bg: 'bg-blue-50/70 border-blue-200' },
+          { label: 'Affected Services', value: `${incident?.affectedServices?.length || 4} services`, icon: Network, color: 'text-blue-700', bg: 'bg-blue-50/70 border-blue-200' },
           { label: 'Query Amplification', value: '4.7×', icon: TrendingUp, color: 'text-red-700', bg: 'bg-red-50/70 border-red-200' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className={cn('flex items-center gap-2 px-3 py-1.5 rounded-xl border shrink-0', bg)}>
@@ -945,7 +973,7 @@ export default function InvestigationWorkspace() {
             </p>
 
             <div className="p-3 bg-porcelain-50 border border-porcelain-200 rounded-xl text-xs space-y-1 font-mono">
-              <div><strong>Incident:</strong> {incident.id}</div>
+              <div><strong>Incident:</strong> {incident?.id || selectedIncidentId}</div>
               <div><strong>Root Cause:</strong> N+1 queries in UserService (PR #1847)</div>
               <div><strong>Confidence:</strong> 92%</div>
               <div><strong>Correlated Evidence:</strong> 14 items</div>
@@ -961,7 +989,7 @@ export default function InvestigationWorkspace() {
               <button
                 onClick={() => {
                   setIsExportModalOpen(false);
-                  notify("Report Exported", `Postmortem_${incident.id}.pdf successfully downloaded.`);
+                  notify("Report Exported", `Postmortem_${incident?.id || selectedIncidentId}.pdf successfully downloaded.`);
                 }}
                 className="px-4 py-2 bg-lime-400 hover:bg-lime-500 font-bold text-graphite-950 text-xs rounded-lg shadow-sm"
               >
