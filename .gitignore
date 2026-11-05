@@ -1,0 +1,141 @@
+# ==============================================================================
+# SECURE GIT EXCLUSIONS - AI PRODUCTION INCIDENT INVESTIGATOR
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Environment & Secret Credentials (NEVER COMMIT)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# API Keys, Private Certificates, and Service Accounts
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.pkcs12
+*.id_rsa
+*.id_ed25519
+*.keystore
+*.jks
+secrets/
+*.secret
+*.token
+credentials.json
+service-account*.json
+firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+
+# ------------------------------------------------------------------------------
+# 2. Dependencies
+# ------------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# ------------------------------------------------------------------------------
+# 3. Build & Compilation Outputs
+# ------------------------------------------------------------------------------
+# Next.js
+frontend/.next/
+.next/
+out/
+build/
+dist/
+backend/dist/
+*.tsbuildinfo
+.turbo/
+
+# ------------------------------------------------------------------------------
+# 4. Logs, Runtime Traces & Diagnostics
+# ------------------------------------------------------------------------------
+logs/
+*.log
+*.log.*
+*.pid
+*.seed
+*.pid.lock
+
+# Telemetry & test coverage
+coverage/
+.nyc_output/
+.clinic/
+
+# ------------------------------------------------------------------------------
+# 5. Local Database & Cache Storage
+# ------------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+postgres_data/
+redis_data/
+.redis/
+
+# ------------------------------------------------------------------------------
+# 6. Generated Reports, Exported Analysis & Scratch Files
+# ------------------------------------------------------------------------------
+*.pdf
+*.html
+!dashboard.html
+!dashboard-out.html
+Incident_Investigator_Product_Analysis_Hinglish.html
+Incident_Investigator_Product_Analysis_Hinglish.pdf
+
+# ------------------------------------------------------------------------------
+# 7. OS, Editor & IDE Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDEs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output and cache
+.next/
+**/.next/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.development.local
+
+# Logs
+*.log
+
+# Build output
+dist/
+build/

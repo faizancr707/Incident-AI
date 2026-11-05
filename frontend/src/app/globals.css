@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Semantic Design Tokens ─────────────────────────── */
+    --color-lime: #B8E62E;
+    --color-graphite: #1E2028;
+    --color-emerald: #0A3D2E;
+    --color-champagne: #F5DEB3;
+    --color-iris: #7B5EA7;
+    --color-signal: #3B82F6;
+    --color-porcelain: #F5F5F0;
+
+    /* Surface tokens */
+    --surface-primary: var(--color-porcelain);
+    --surface-elevated: #FFFFFF;
+    --surface-dark: var(--color-graphite);
+    --surface-analytical: var(--color-emerald);
+
+    /* Text tokens */
+    --text-primary: #1A1A1F;
+    --text-secondary: #6B6B76;
+    --text-tertiary: #9C9CA8;
+    --text-inverse: #FAFAF8;
+
+    /* Border tokens */
+    --border-default: #E4E4E0;
+    --border-subtle: #ECECEA;
+    --border-strong: #D4D4CE;
+  }
+
+  * {
+    @apply border-[var(--border-default)];
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-porcelain text-[var(--text-primary)] font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-graphite-300/40 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-graphite-300/60;
+  }
+}
+
+@layer components {
+  /* Card surface */
+  .surface-card {
+    @apply bg-white rounded-lg border border-[var(--border-subtle)] shadow-card;
+  }
+
+  /* Metric card */
+  .metric-card {
+    @apply surface-card p-5 hover:shadow-elevated transition-shadow duration-200;
+  }
+
+  /* Dark panel (for code, logs, terminal) */
+  .surface-dark {
+    @apply bg-graphite-700 text-porcelain-100 rounded-lg;
+  }
+
+  /* Analytical surface (emerald) */
+  .surface-analytical {
+    @apply bg-emerald-700 text-porcelain-100 rounded-lg;
+  }
+
+  /* AI surface (iris) */
+  .surface-ai {
+    @apply bg-iris-50 border border-iris-200 rounded-lg;
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply bg-porcelain-400/60 animate-pulse rounded;
+  }
+
+  /* Active nav item */
+  .nav-item-active {
+    @apply bg-lime/10 text-porcelain-100 border-l-2 border-lime;
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply w-2 h-2 rounded-full inline-block;
+  }
+
+  .status-dot-healthy {
+    @apply status-dot bg-lime animate-pulse-slow;
+  }
+
+  .status-dot-warning {
+    @apply status-dot bg-champagne;
+  }
+
+  .status-dot-critical {
+    @apply status-dot bg-severity-critical animate-pulse;
+  }
+
+  .status-dot-running {
+    @apply status-dot bg-iris animate-pulse-slow;
+  }
+
+  /* Badge variants */
+  .badge-critical {
+    @apply bg-red-50 text-red-700 border border-red-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  .badge-high {
+    @apply bg-champagne-50 text-champagne-800 border border-champagne-300 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  .badge-medium {
+    @apply bg-signal-50 text-signal-700 border border-signal-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  .badge-low {
+    @apply bg-porcelain-300 text-porcelain-800 border border-porcelain-500 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  .badge-ai {
+    @apply bg-iris-50 text-iris-700 border border-iris-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  .badge-success {
+    @apply bg-lime-50 text-lime-800 border border-lime-200 text-xs font-semibold px-2 py-0.5 rounded;
+  }
+
+  /* Confidence bar */
+  .confidence-bar {
+    @apply h-1.5 rounded-full bg-porcelain-400;
+  }
+
+  .confidence-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(184, 230, 46, 0.08) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* Code block */
+  .code-block {
+    @apply font-mono text-sm bg-graphite-700 text-porcelain-200 px-4 py-3 rounded-lg overflow-x-auto;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

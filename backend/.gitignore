@@ -1,0 +1,26 @@
+# Backend Git Exclusions
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Credentials & Keys
+*.pem
+*.key
+*.cert
+credentials.json
+service-account*.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Database & Runtime
+*.sqlite
+*.sqlite3
+*.db

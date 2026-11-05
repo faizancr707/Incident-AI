@@ -1,0 +1,43 @@
+import { Router } from "express";
+import { createSession, destroySession, getSession } from "../middleware/auth";
+
+export const authRoutes = Router();
+
+/** POST /api/auth/login */
+authRoutes.post("/login", (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: "Email and password are required" });
+    return;
+  }
+  const result = createSession(email, password);
+  if (!result) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+  res.json({ token: result.token, user: result.user });
+});
+
+/** POST /api/auth/logout */
+authRoutes.post("/logout", (req, res) => {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) {
+    destroySession(header.slice(7));
+  }
+  res.json({ success: true });
+});
+
+/** GET /api/auth/me */
+authRoutes.get("/me", (req, res) => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const user = getSession(header.slice(7));
+  if (!user) {
+    res.status(401).json({ error: "Session expired" });
+    return;
+  }
+  res.json({ user });
+});
