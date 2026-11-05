@@ -29,22 +29,15 @@ export default function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
 
-  // Report / Simulate Incident Modal
+  // Report Incident Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newService, setNewService] = useState("Payment API");
-  const [newSeverity, setNewSeverity] = useState<"critical" | "high" | "medium" | "low">("critical");
+  const [newService, setNewService] = useState("");
+  const [newSeverity, setNewSeverity] = useState<"critical" | "high" | "medium" | "low">("high");
   const [newEnvironment, setNewEnvironment] = useState<"production" | "staging" | "development">("production");
   const [newImpact, setNewImpact] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState("");
-
-  const applyPreset = (preset: { title: string; service: string; severity: "critical" | "high" | "medium"; impact: string }) => {
-    setNewTitle(preset.title);
-    setNewService(preset.service);
-    setNewSeverity(preset.severity);
-    setNewImpact(preset.impact);
-  };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -367,8 +360,8 @@ export default function IncidentsPage() {
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-graphite-950 text-base">Report New Incident</h3>
-                  <p className="text-[11px] text-graphite-500">Trigger manual incident or simulate production failure</p>
+                  <h3 className="font-bold text-graphite-950 text-base">Report Incident</h3>
+                  <p className="text-[11px] text-graphite-500">Dispatch a live production incident to initiate AI investigation</p>
                 </div>
               </div>
               <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-graphite-400 hover:text-graphite-900 cursor-pointer">
@@ -376,55 +369,7 @@ export default function IncidentsPage() {
               </button>
             </div>
 
-            {/* Quick Simulation Presets */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold uppercase text-graphite-400 tracking-wider flex items-center gap-1">
-                <Zap className="w-3 h-3 text-champagne-600" /> One-Click Simulation Presets:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => applyPreset({
-                    title: "Stripe Webhook Timeout Spike",
-                    service: "Payment API",
-                    severity: "critical",
-                    impact: "23% checkout transactions timing out on payment processing gateway."
-                  })}
-                  className="text-left p-2 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100/70 transition-colors text-xs cursor-pointer"
-                >
-                  <div className="font-bold text-red-900">Payment Outage</div>
-                  <div className="text-[10px] text-red-700">Critical · Payment API</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset({
-                    title: "Redis Connection Pool Starvation",
-                    service: "Auth Service",
-                    severity: "high",
-                    impact: "Session validation latency increased from 2ms to 450ms across all auth routes."
-                  })}
-                  className="text-left p-2 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 transition-colors text-xs cursor-pointer"
-                >
-                  <div className="font-bold text-amber-900">Auth Pool Lock</div>
-                  <div className="text-[10px] text-amber-700">High · Auth Service</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset({
-                    title: "High Memory Allocation in Image Worker",
-                    service: "CDN",
-                    severity: "medium",
-                    impact: "Worker pod restarted due to OOM kill on large image compression payload."
-                  })}
-                  className="text-left p-2 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 transition-colors text-xs cursor-pointer"
-                >
-                  <div className="font-bold text-blue-900">Memory Leak</div>
-                  <div className="text-[10px] text-blue-700">Medium · CDN Service</div>
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-3 pt-1">
+            <form onSubmit={handleCreateSubmit} className="space-y-4 pt-1">
               {createError && (
                 <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
                   {createError}
@@ -435,7 +380,7 @@ export default function IncidentsPage() {
                 <label className="block text-xs font-semibold text-graphite-700 mb-1">Incident Title *</label>
                 <input
                   type="text"
-                  placeholder="e.g. Postgres Connection Pool Starvation on /checkout"
+                  placeholder="e.g. 504 Gateway Timeout during checkout authorization"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 focus:border-signal-500 bg-white text-graphite-900"
@@ -446,18 +391,14 @@ export default function IncidentsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-graphite-700 mb-1">Affected Service *</label>
-                  <select
+                  <input
+                    type="text"
+                    placeholder="e.g. checkout-service"
                     value={newService}
                     onChange={(e) => setNewService(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-porcelain-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-signal-500/20 bg-white text-graphite-900 font-medium"
-                  >
-                    <option value="Payment API">Payment API</option>
-                    <option value="User Service">User Service</option>
-                    <option value="Auth Service">Auth Service</option>
-                    <option value="API Gateway">API Gateway</option>
-                    <option value="Order Service">Order Service</option>
-                    <option value="CDN">CDN</option>
-                  </select>
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-graphite-700 mb-1">Severity *</label>

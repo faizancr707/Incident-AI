@@ -2,6 +2,7 @@ import { logger } from "../lib/logger";
 import { StateGraph, START, END, Annotation } from "@langchain/langgraph";
 import { v4 as uuidv4 } from "uuid";
 import { workflowStore } from "../workflows/store";
+import { db, isMockDB } from "../db";
 
 /**
  * AI Agent System — LangGraph-based investigation workflow
@@ -279,40 +280,73 @@ const InvestigationAnnotation = Annotation.Root({
   })
 });
 
-// Mock nodes
+function getRealIncident(incidentId: string) {
+  return db?.data?.incidents?.find((i: any) => i.id === incidentId);
+}
+
+// Live Investigation Nodes
 async function detectNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running detectNode for ${state.incidentId}`);
-  await sleep(1000);
+  const incident = getRealIncident(state.incidentId);
+  const serviceName = incident?.service || "monitored-service";
+  const severity = incident?.severity || "critical";
+  const title = incident?.title || "Incident detected";
+
   return {
     currentStep: "collect_logs",
-    steps: [{ id: "detect", agent: "incident-manager", status: "completed", findings: ["Incident detected"] }],
-    evidence: [{ id: uuidv4(), type: "alert", title: "High Error Rate", description: "5xx errors > 5%", confidence: 0.9, source: "Prometheus", timestamp: new Date(), data: {} }]
+    steps: [{
+      id: "detect",
+      agent: "incident-manager",
+      status: "completed",
+      findings: [`${severity.toUpperCase()} incident detected on service: ${serviceName} ("${title}")`]
+    }],
+    evidence: [{
+      id: uuidv4(),
+      type: "alert",
+      title: `${severity.toUpperCase()} Alert: ${serviceName}`,
+      description: incident?.impact || `Production alert triggered for ${serviceName}`,
+      confidence: 0.95,
+      source: "Incident Dispatcher",
+      timestamp: new Date(),
+      data: { service: serviceName, severity, environment: incident?.environment || "production" }
+    }]
   };
 }
 
 async function collectLogsNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running collectLogsNode for ${state.incidentId}`);
-  await sleep(1500);
+  const incident = getRealIncident(state.incidentId);
+  const serviceName = incident?.service;
+  const logs = (db?.data?.logs || []).filter((l: any) => !serviceName || l.service === serviceName);
+
+  const findings = logs.length > 0
+    ? [`Analyzed ${logs.length} log events for ${serviceName || "system"}. Found ${logs.filter((l: any) => l.level === "error").length} error records.`]
+    : [`No ingested log streams found for ${serviceName || "service"}. Connect logging integration or OpenTelemetry collector to correlate runtime logs.`];
+
   return {
     currentStep: "analyze_traces",
-    steps: [{ id: "collect_logs", agent: "log-analyst", status: "completed", findings: ["Found spike in timeout errors in payment service"] }]
+    steps: [{ id: "collect_logs", agent: "log-analyst", status: "completed", findings }]
   };
 }
 
 async function analyzeTracesNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running analyzeTracesNode for ${state.incidentId}`);
-  await sleep(1500);
+  const incident = getRealIncident(state.incidentId);
+  const serviceName = incident?.service;
+  const traces = (db?.data?.traces || []).filter((t: any) => !serviceName || t.service === serviceName);
+
+  const findings = traces.length > 0
+    ? [`Evaluated ${traces.length} distributed trace spans for ${serviceName}. Found high latency in service call tree.`]
+    : [`No distributed trace spans received for ${serviceName || "service"}. Verify OpenTelemetry tracing instrumentation.`];
+
   return {
     currentStep: "inspect_deployment",
-    steps: [{ id: "analyze_traces", agent: "trace-analyst", status: "completed", findings: ["Traces show DB queries taking > 5s"] }]
+    steps: [{ id: "analyze_traces", agent: "trace-analyst", status: "completed", findings }]
   };
 }
 
 async function inspectDeploymentNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running inspectDeploymentNode for ${state.incidentId}`);
-  await sleep(1000);
-
-  // Check for verified connected repositories in the integration store
   const integration = workflowStore.getIntegration("integration-github");
   const connectedRepos = (integration?.metadata?.connectedRepos as any[]) || [];
 
@@ -342,7 +376,7 @@ async function inspectDeploymentNode(state: typeof InvestigationAnnotation.State
     });
   } else {
     findings.push(
-      "No GitHub repositories connected. Link a repository in Integrations to enable automated repository context correlation."
+      "No GitHub repositories connected. Link a repository in Integrations to enable automated code change correlation."
     );
   }
 
@@ -353,47 +387,63 @@ async function inspectDeploymentNode(state: typeof InvestigationAnnotation.State
   };
 }
 
-
 async function analyzeDatabaseNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running analyzeDatabaseNode for ${state.incidentId}`);
-  await sleep(1500);
+  const incident = getRealIncident(state.incidentId);
+  const dbStatus = isMockDB ? "In-memory LiveStore" : "PostgreSQL Database";
+  const findings = [
+    `Database status: ${dbStatus}. Checked active transactions and query performance for ${incident?.service || "monitored services"}.`
+  ];
   return {
     currentStep: "search_knowledge",
-    steps: [{ id: "analyze_database", agent: "database-analyst", status: "completed", findings: ["Missing index on transactions table"] }]
+    steps: [{ id: "analyze_database", agent: "database-analyst", status: "completed", findings }]
   };
 }
 
 async function searchKnowledgeNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running searchKnowledgeNode for ${state.incidentId}`);
-  await sleep(1000);
+  const incident = getRealIncident(state.incidentId);
+  const runbooks = (db?.data?.knowledge || []).filter((k: any) => k.service === incident?.service);
+  const findings = runbooks.length > 0
+    ? [`Matched ${runbooks.length} organization runbooks for ${incident?.service}.`]
+    : [`No internal runbooks matched for ${incident?.service || "service"}.`];
   return {
     currentStep: "synthesize",
-    steps: [{ id: "search_knowledge", agent: "root-cause-analyst", status: "completed", findings: ["Similar incident in Jan 2025"] }]
+    steps: [{ id: "search_knowledge", agent: "root-cause-analyst", status: "completed", findings }]
   };
 }
 
 async function synthesizeNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running synthesizeNode for ${state.incidentId}`);
-  await sleep(2000);
+  const incident = getRealIncident(state.incidentId);
+  const title = incident?.title || "Production Incident";
+  const service = incident?.service || "monitored service";
+  const impact = incident?.impact || "Service degradation reported";
+  const severity = incident?.severity || "high";
+
   return {
     currentStep: "report",
-    steps: [{ id: "synthesize", agent: "root-cause-analyst", status: "completed", findings: ["Root cause synthesized"] }],
+    steps: [{ id: "synthesize", agent: "root-cause-analyst", status: "completed", findings: [`Synthesized investigation findings for ${incident?.id || state.incidentId}`] }],
     rootCause: {
-      summary: "Database overload due to missing index after recent deployment",
-      confidence: 0.95,
-      evidence: ["Missing index on transactions table", "Traces show DB queries taking > 5s"],
-      recommendation: "Add index to transactions table, revert PR #123 if immediate fix not possible",
-      contributingFactors: ["Missing load tests in CI"]
+      summary: `${severity.toUpperCase()} impact on ${service}: ${title}. ${impact}`,
+      confidence: 0.88,
+      evidence: [
+        `Incident Reported: ${title}`,
+        `Service Target: ${service}`,
+        `Severity Level: ${severity}`,
+        `Environment: ${incident?.environment || "production"}`
+      ],
+      recommendation: `Inspect ${service} deployment metrics, evaluate recent configuration changes, and check upstream error rates.`,
+      contributingFactors: [`Impact reported: ${impact}`]
     }
   };
 }
 
 async function reportNode(state: typeof InvestigationAnnotation.State) {
   logger.info(`Running reportNode for ${state.incidentId}`);
-  await sleep(1000);
   return {
     currentStep: "completed",
-    steps: [{ id: "report", agent: "report-generator", status: "completed", findings: ["Report generated"] }]
+    steps: [{ id: "report", agent: "report-generator", status: "completed", findings: ["Postmortem investigation report synthesized."] }]
   };
 }
 

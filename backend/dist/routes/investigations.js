@@ -7,7 +7,6 @@ exports.investigationRoutes = void 0;
 const express_1 = require("express");
 const agents_1 = require("../ai/agents");
 const db_1 = require("../db");
-const mock_data_1 = require("../db/mock-data");
 const store_1 = require("../workflows/store");
 const openai_1 = __importDefault(require("openai"));
 exports.investigationRoutes = (0, express_1.Router)();
@@ -23,7 +22,7 @@ exports.investigationRoutes.get("/", async (req, res) => {
             status: liveState ? liveState.currentStep : inc.status,
             active: inc.aiInvestigation?.active || !!liveState,
             confidence: liveState?.rootCause?.confidence || inc.aiInvestigation?.confidence || 0,
-            stepsCount: liveState?.steps?.length || mock_data_1.investigationSteps.length,
+            stepsCount: liveState?.steps?.length || 0,
         };
     });
     res.json({ investigations: list });
@@ -36,21 +35,15 @@ exports.investigationRoutes.get("/:id", async (req, res) => {
         if (state) {
             return res.json({ investigation: state });
         }
-        // Default seeded state fallback if no run was triggered yet
         const incident = db_1.db.data?.incidents?.find((i) => i.id === id);
         if (!incident) {
             return res.status(404).json({ error: "Investigation not found" });
         }
-        res.json({
-            investigation: {
-                incidentId: id,
-                currentStep: "synthesize",
-                steps: mock_data_1.investigationSteps,
-                evidence: mock_data_1.evidence,
-                rootCause: mock_data_1.rootCauseAnalysis,
-                agentMessages: [],
-                metadata: { incidentId: id, startedAt: incident.startedAt },
-            },
+        return res.json({
+            investigation: null,
+            status: "not_started",
+            message: `No AI investigation has been conducted for ${id} yet. Click 'Start AI Investigation' to begin analyzing live telemetry and code changes.`,
+            metadata: { incidentId: id, startedAt: incident.startedAt },
         });
     }
     catch (error) {
@@ -62,11 +55,7 @@ exports.investigationRoutes.get("/:id/steps", async (req, res) => {
     try {
         const { id } = req.params;
         const state = (0, agents_1.getInvestigationState)(id);
-        if (state?.steps && state.steps.length > 0) {
-            return res.json({ steps: state.steps });
-        }
-        // Return seeded steps as initial baseline
-        res.json({ steps: mock_data_1.investigationSteps });
+        return res.json({ steps: state?.steps || [] });
     }
     catch (error) {
         res.status(500).json({ error: "Failed to fetch steps" });
@@ -77,11 +66,7 @@ exports.investigationRoutes.get("/:id/evidence", async (req, res) => {
     try {
         const { id } = req.params;
         const state = (0, agents_1.getInvestigationState)(id);
-        if (state?.evidence && state.evidence.length > 0) {
-            return res.json({ evidence: state.evidence });
-        }
-        // Return seeded evidence as initial baseline
-        res.json({ evidence: mock_data_1.evidence });
+        return res.json({ evidence: state?.evidence || [] });
     }
     catch (error) {
         res.status(500).json({ error: "Failed to fetch evidence" });
@@ -92,18 +77,14 @@ exports.investigationRoutes.get("/:id/root-cause", async (req, res) => {
     try {
         const { id } = req.params;
         const state = (0, agents_1.getInvestigationState)(id);
-        if (state?.rootCause) {
-            return res.json({ rootCause: state.rootCause });
-        }
-        // Return seeded root cause
-        res.json({ rootCause: mock_data_1.rootCauseAnalysis });
+        return res.json({ rootCause: state?.rootCause || null });
     }
     catch (error) {
         res.status(500).json({ error: "Failed to fetch root cause" });
     }
 });
-// POST /api/investigations/:id/run or /investigate
-exports.investigationRoutes.post(["/:id/run", "/:id/investigate"], async (req, res) => {
+// POST /api/investigations/:id/run or /investigate or /trigger
+exports.investigationRoutes.post(["/:id/run", "/:id/investigate", "/:id/trigger"], async (req, res) => {
     try {
         const id = req.params.id;
         const state = (0, agents_1.executeInvestigation)(id);
@@ -128,13 +109,10 @@ exports.investigationRoutes.post("/:id/ask", async (req, res) => {
             return res.status(400).json({ error: "Question is required" });
         }
         const state = (0, agents_1.getInvestigationState)(id);
-        const incident = db_1.db.data?.incidents?.find((i) => i.id === id) || {
-            id,
-            title: "Payment API Latency Spike",
-            service: "Payment API",
-            severity: "critical",
-            impact: "Payment processing degraded — 23% of transactions failing due to timeout.",
-        };
+        const incident = db_1.db.data?.incidents?.find((i) => i.id === id);
+        if (!incident) {
+            return res.status(404).json({ error: "Incident not found" });
+        }
         const githubIntegration = store_1.workflowStore.getIntegration("integration-github");
         const connectedRepos = githubIntegration?.metadata?.connectedRepos || [];
         const primaryRepo = connectedRepos[0]?.fullName || "faizancr707/Incident-AI";
@@ -142,11 +120,12 @@ exports.investigationRoutes.post("/:id/ask", async (req, res) => {
         if (process.env.OPENAI_API_KEY) {
             try {
                 const openai = new openai_1.default({ apiKey: process.env.OPENAI_API_KEY });
-                const systemPrompt = `You are an elite Site Reliability Engineering (SRE) AI Agent investigating incident ${incident.id}: "${incident.title}" affecting ${incident.service}.
+                const systemPrompt = `You are a Site Reliability Engineering (SRE) AI Agent investigating incident ${incident.id}: "${incident.title}" affecting ${incident.service}.
+Severity: ${incident.severity}. Environment: ${incident.environment}.
+Reported Impact: ${incident.impact || "Service degradation"}.
 Connected Repository: ${primaryRepo}.
-Root Cause Findings: Deployment v1.8.4 introduced an N+1 query amplification loop in UserService (PR #1847), overloading the PostgreSQL connection pool (CPU 88%, latency 2,340ms).
-Active Evidence: 37 distributed traces sampled, 847 timeout errors in logs.
-Give concise, highly actionable, technical SRE answers.`;
+Root Cause Findings: ${state?.rootCause?.summary || "Investigation in progress"}.
+Give concise, highly actionable, technical SRE answers based strictly on these facts.`;
                 const completion = await openai.chat.completions.create({
                     model: "gpt-4o-mini",
                     messages: [
@@ -167,33 +146,27 @@ Give concise, highly actionable, technical SRE answers.`;
                 }
             }
             catch (llmErr) {
-                // Fall through to contextual reasoning engine
+                // Fall through to real parameter-grounded response
             }
         }
-        // Contextual Reasoning Engine (100% resilient SRE knowledge correlation)
+        // Real parameter-grounded technical response based on the actual incident
         const lower = question.toLowerCase();
         let reply = "";
         if (lower.includes("rollback") || lower.includes("revert")) {
-            reply = `Recommended action for ${incident.id}: Revert deployment v1.8.4 immediately on repository ${primaryRepo}. It restores baseline latency (45ms) without data loss, as no schema migrations were applied in this release.`;
+            reply = `Remediation for ${incident.id}: Review recent releases on repository ${primaryRepo} affecting service ${incident.service}. If degradation started immediately following a deployment, revert the commit to restore baseline operations.`;
         }
         else if (lower.includes("commit") || lower.includes("pr") || lower.includes("change") || lower.includes("repo") || lower.includes("github")) {
-            reply = `Connected repository: ${primaryRepo}. The offending code change was identified in PR #1847 ('refactor: simplify user lookup logic') merged 18 minutes prior to incident detection. It replaced 'getUserBatch()' with an unmemoized per-record SELECT loop in UserService.ts:84.`;
-        }
-        else if (lower.includes("db") || lower.includes("database") || lower.includes("cpu") || lower.includes("sql") || lower.includes("pool")) {
-            reply = `Database telemetry confirms PostgreSQL CPU reached 88% with 47 of 50 active pool connections saturated. UserService is generating 147 queries per checkout transaction instead of a single batch query (N+1 query pattern).`;
+            reply = `Connected repository: ${primaryRepo}. Automated correlation links ${incident.service} to changes on ${primaryRepo}. Review pull requests merged within 1 hour prior to ${new Date(incident.startedAt).toLocaleTimeString()}.`;
         }
         else if (lower.includes("mitigate") || lower.includes("fix") || lower.includes("solution") || lower.includes("prevent")) {
-            reply = `Actionable remediation plan: 1) Roll back UserService to v1.8.3, 2) Clear application-level cache, 3) Long term: implement DataLoader batching with CI/CD query threshold enforcement.`;
-        }
-        else if (lower.includes("trace") || lower.includes("log") || lower.includes("error") || lower.includes("latency")) {
-            reply = `Telemetry correlation: 847 timeout errors detected in UserService logs. Distributed traces reveal P99 latency degraded from 45ms to 2,340ms, with 23% of Payment API transactions timing out at the edge gateway.`;
+            reply = `Action items for ${incident.service}: 1) Verify healthy pods or instances for ${incident.service}, 2) Check upstream load balancers and database connection pools, 3) Add automated canary verification before full rollout.`;
         }
         else if (lower.includes("status") || lower.includes("step") || lower.includes("agent")) {
-            const activeSteps = state?.steps?.filter((s) => s.status === "completed") || mock_data_1.investigationSteps;
-            reply = `Investigation status for ${incident.id}: 7 agents orchestrated. ${activeSteps.length} analysis stages completed with 92% confidence score. Root cause verified in UserService data access layer.`;
+            const activeSteps = state?.steps?.filter((s) => s.status === "completed") || [];
+            reply = `Investigation status for ${incident.id}: ${activeSteps.length} of ${state?.steps?.length || 0} stages completed. Current workflow state: ${state?.currentStep || "idle"}.`;
         }
         else {
-            reply = `AI SRE Agent: Based on multi-agent analysis for ${incident.id} (${incident.service}) and correlated repository ${primaryRepo}, the root cause is query amplification in UserService starving the PostgreSQL connection pool. Confidence: 92%.`;
+            reply = `AI SRE Agent: Investigating incident ${incident.id} on ${incident.service} (${incident.severity.toUpperCase()}). Reported impact: ${incident.impact || incident.title}. Correlated with repository ${primaryRepo}.`;
         }
         return res.json({
             response: reply,

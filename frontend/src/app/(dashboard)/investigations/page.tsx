@@ -163,13 +163,7 @@ export default function InvestigationWorkspace() {
 
   // Chat conversation
   const [agentQuery, setAgentQuery] = useState("");
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "ai"; text: string; time: string }>>([
-    {
-      sender: "ai",
-      text: "I analyzed 37 distributed traces and correlated commit 7d9a1f in deployment v1.8.4. UserService is generating 147 queries per checkout request instead of a single batch query.",
-      time: "23m ago"
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "ai"; text: string; time: string }>>([]);
   const [isAiThinking, setIsAiThinking] = useState(false);
 
   // ── Live Data Queries ──────────────────────────────────
@@ -841,10 +835,18 @@ export default function InvestigationWorkspace() {
                 </div>
               ))}
 
+              {chatMessages.length === 0 && (
+                <div className="p-4 rounded-xl text-xs bg-porcelain-100/70 border border-porcelain-200 text-graphite-500 text-center space-y-1">
+                  <BrainCircuit className="w-5 h-5 text-purple-600 mx-auto" />
+                  <p className="font-semibold text-graphite-700">AI Investigation Assistant</p>
+                  <p className="text-[11px]">Ask questions about root cause, mitigation steps, or correlated repository changes.</p>
+                </div>
+              )}
+
               {isAiThinking && (
                 <div className="p-3 rounded-xl text-xs bg-purple-50 border border-purple-200 text-purple-700 flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                  <span>Synthesizing incident logs & database metrics...</span>
+                  <span>Synthesizing incident logs & telemetry...</span>
                 </div>
               )}
 
@@ -855,9 +857,9 @@ export default function InvestigationWorkspace() {
                 </span>
                 <div className="flex flex-col gap-1">
                   {[
-                    "Should we rollback deployment v1.8.4?",
-                    "Which commit and PR caused this?",
-                    "What is the immediate mitigation?",
+                    "What is the probable root cause of this incident?",
+                    "What is the recommended immediate mitigation?",
+                    "Are there recent code commits correlated with this service?",
                   ].map((chip) => (
                     <button
                       key={chip}
@@ -878,7 +880,7 @@ export default function InvestigationWorkspace() {
                   onClick={() => setIsDiffModalOpen(true)}
                   className="flex items-center justify-center gap-1.5 p-2 bg-white hover:bg-porcelain-100 border border-porcelain-300 rounded-lg font-medium text-graphite-800 transition cursor-pointer"
                 >
-                  <GitCommit className="w-3.5 h-3.5 text-purple-600" /> View PR #1847
+                  <GitCommit className="w-3.5 h-3.5 text-purple-600" /> View Repository
                 </button>
                 <button
                   onClick={() => setIsTaskModalOpen(true)}

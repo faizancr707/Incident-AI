@@ -1,17 +1,16 @@
 import { Router } from "express";
 import { db, isMockDB } from "../db";
-import { serviceHealth } from "../db/mock-data";
 
 export const healthRoutes = Router();
 
 healthRoutes.get("/", async (req, res) => {
-  let dbStatus = "mock";
+  let dbStatus = "in-memory";
   if (!isMockDB && db && typeof db.query === "function") {
     try {
       await db.query("SELECT 1");
       dbStatus = "connected";
     } catch {
-      dbStatus = "mock";
+      dbStatus = "disconnected";
     }
   }
   res.json({
@@ -22,14 +21,12 @@ healthRoutes.get("/", async (req, res) => {
   });
 });
 
-// GET /api/health/services — Service health status for topology & telemetry dashboards
+// GET /api/health/services — Real service health status for topology & telemetry dashboards
 healthRoutes.get("/services", async (req, res) => {
   try {
-    // When PostgreSQL is connected, query live service metrics
-    // For now, return the curated service health dataset
-    return res.json(serviceHealth);
+    const services = db?.data?.serviceHealth || [];
+    return res.json(services);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch service health" });
   }
 });
-

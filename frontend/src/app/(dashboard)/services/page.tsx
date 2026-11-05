@@ -8,20 +8,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { getServicesHealth } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { TabNavigation, TabItem } from "@/components/ui/tab-navigation";
 import { ServiceNodeCard } from "@/components/ui/service-node-card";
-import { FlowConnector, BranchConnector } from "@/components/ui/flow-connector";
-
-// Helper to generate sparkline data
-const generateSparkline = (status: string) => {
-  const base = status === "healthy" ? 20 : status === "degraded" ? 60 : 100;
-  const variance = status === "healthy" ? 5 : 20;
-  return Array.from({ length: 15 }, (_, i) => ({
-    time: i,
-    val: base + (Math.random() - 0.5) * variance + (status === "degraded" && i > 10 ? 40 : 0)
-  }));
-};
+import { FlowConnector } from "@/components/ui/flow-connector";
 
 export default function ServicesPage() {
   const [activeTab, setActiveTab] = useState("topology");
@@ -105,181 +94,130 @@ export default function ServicesPage() {
       <div className="flex-1 overflow-auto p-6">
         {isLoading ? (
           <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>
+        ) : serviceHealth.length === 0 ? (
+          <div className="surface-card bg-white border border-dashed border-porcelain-300 rounded-2xl p-12 flex flex-col items-center justify-center text-center gap-3 max-w-lg mx-auto my-12 shadow-sm">
+            <Server className="w-10 h-10 text-graphite-400" />
+            <h3 className="text-base font-semibold text-graphite-800">No Services Connected</h3>
+            <p className="text-xs text-graphite-500 leading-relaxed">
+              No monitored services are currently connected. Configure your cloud services or APM integrations (OpenTelemetry, Prometheus, Datadog) to visualize real-time topology and telemetry.
+            </p>
+          </div>
         ) : (
           <>
-        {activeTab === "topology" && (
-          <div className="max-w-5xl mx-auto flex flex-col items-center py-4">
-            {/* Summary counters strip */}
-            <div className="w-full flex items-center justify-between mb-8 pb-4 border-b border-porcelain-200 px-2">
-              <div className="flex items-center gap-5 text-xs font-semibold">
-                <div className="flex items-center gap-2 text-graphite-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-lime-500" />
-                  Healthy: {serviceHealth.filter(s => s.status === 'healthy').length}
-                </div>
-                <div className="flex items-center gap-2 text-graphite-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-champagne-500" />
-                  Degraded: {serviceHealth.filter(s => s.status === 'degraded').length}
-                </div>
-                <div className="flex items-center gap-2 text-graphite-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  Down: {serviceHealth.filter(s => s.status === 'down').length}
-                </div>
-              </div>
-              <span className="text-xs text-graphite-400 font-mono">
-                Environment: {environment}
-              </span>
-            </div>
-
-            {/* Topology Tree matching reference screenshot */}
-            <div className="flex flex-col items-center w-full">
-              {/* Root Node: API Gateway */}
-              <ServiceNodeCard
-                icon={Server}
-                title="API Gateway"
-                subtitle="Healthy · 45ms P99"
-                variant="healthy"
-                badge="Ingress"
-                delay={0}
-              />
-
-              {/* Standardized 1-to-2 Branch Connector */}
-              <BranchConnector childrenCount={2} />
-
-              {/* Tier 2: Auth Service (Left) & Payment Service (Right) */}
-              <div className="flex items-start justify-center gap-8 sm:gap-20 w-full">
-                {/* Left Branch: Auth Service -> Redis Cache */}
-                <div className="flex flex-col items-center">
-                  <ServiceNodeCard
-                    icon={Shield}
-                    title="Auth Service"
-                    subtitle="Healthy · 28ms P99"
-                    variant="healthy"
-                    delay={0.15}
-                  />
-
-                  <FlowConnector length={24} vertical withArrow />
-
-                  <ServiceNodeCard
-                    icon={Database}
-                    title="Redis Session Cache"
-                    subtitle="Healthy · 2ms latency"
-                    variant="healthy"
-                    delay={0.25}
-                  />
-                </div>
-
-                {/* Right Branch: Payment Service -> User Service -> PostgreSQL */}
-                <div className="flex flex-col items-center">
-                  <ServiceNodeCard
-                    icon={Activity}
-                    title="Payment Service"
-                    subtitle="Degraded · 2,340ms P99"
-                    variant="degraded"
-                    delay={0.2}
-                  />
-
-                  <FlowConnector length={24} vertical withArrow />
-
-                  <ServiceNodeCard
-                    icon={Server}
-                    title="User Service"
-                    subtitle="Degraded · 1,890ms P99"
-                    variant="degraded"
-                    delay={0.3}
-                  />
-
-                  <FlowConnector length={24} vertical withArrow />
-
-                  <ServiceNodeCard
-                    icon={Database}
-                    title="PostgreSQL Cluster"
-                    subtitle="CPU 88% · High Latency"
-                    variant="database"
-                    delay={0.4}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "telemetry" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5">
-            {serviceHealth.map((service) => (
-              <div
-                key={service.name}
-                className="bg-white rounded-2xl border border-porcelain-200 p-5 flex flex-col shadow-sm hover:shadow-md hover:border-porcelain-300 transition-all group"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-graphite-900 mb-1.5 flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-graphite-400" />
-                      {service.name}
-                    </h3>
-                    <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize", getStatusColor(service.status))}>
-                      <span className={cn("w-1.5 h-1.5 rounded-full", getStatusDot(service.status))} />
-                      {service.status}
+            {activeTab === "topology" && (
+              <div className="max-w-5xl mx-auto flex flex-col items-center py-4">
+                {/* Summary counters strip */}
+                <div className="w-full flex items-center justify-between mb-8 pb-4 border-b border-porcelain-200 px-2">
+                  <div className="flex items-center gap-5 text-xs font-semibold">
+                    <div className="flex items-center gap-2 text-graphite-700">
+                      <span className="w-2.5 h-2.5 rounded-full bg-lime-500" />
+                      Healthy: {serviceHealth.filter(s => s.status === 'healthy').length}
+                    </div>
+                    <div className="flex items-center gap-2 text-graphite-700">
+                      <span className="w-2.5 h-2.5 rounded-full bg-champagne-500" />
+                      Degraded: {serviceHealth.filter(s => s.status === 'degraded').length}
+                    </div>
+                    <div className="flex items-center gap-2 text-graphite-700">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      Down: {serviceHealth.filter(s => s.status === 'down').length}
                     </div>
                   </div>
-
-                  {/* Sparkline */}
-                  <div className="w-18 h-8">
-                    <ResponsiveContainer width={72} height={32}>
-                      <LineChart data={generateSparkline(service.status)}>
-                        <Line
-                          type="monotone"
-                          dataKey="val"
-                          stroke={service.status === 'healthy' ? '#84cc16' : (service.status === 'degraded' ? '#f59e0b' : '#ef4444')}
-                          strokeWidth={2}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <span className="text-xs text-graphite-400 font-mono">
+                    Environment: {environment}
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 my-auto py-3 border-y border-porcelain-100">
-                  <div>
-                    <p className="text-[11px] text-graphite-400 font-medium">P99 Latency</p>
-                    <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.latencyP99}ms</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-graphite-400 font-medium">Error Rate</p>
-                    <p className={cn("text-sm font-bold font-mono mt-0.5", service.errorRate > 1 ? "text-champagne-700" : "text-graphite-900")}>
-                      {service.errorRate}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-graphite-400 font-medium">Requests</p>
-                    <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.requestRate}/s</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-graphite-400 font-medium">Uptime</p>
-                    <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.uptime}%</p>
-                  </div>
-                </div>
-
-                <div className="pt-3.5 mt-2">
-                  <p className="text-[11px] text-graphite-400 font-medium mb-1.5">Dependencies</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {service.dependencies.map((dep) => (
-                      <span
-                        key={dep}
-                        className="text-[10px] text-graphite-600 bg-porcelain-100 border border-porcelain-200 px-2 py-0.5 rounded-md font-mono"
-                      >
-                        {dep}
-                      </span>
-                    ))}
-                    {service.dependencies.length === 0 && (
-                      <span className="text-[10px] text-graphite-400 italic">None</span>
-                    )}
-                  </div>
+                {/* Dynamic Topology Grid based on real services */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                  {serviceHealth.map((service, idx) => (
+                    <div key={service.name} className="flex flex-col items-center">
+                      <ServiceNodeCard
+                        icon={service.name.toLowerCase().includes("database") || service.name.toLowerCase().includes("sql") ? Database : Server}
+                        title={service.name}
+                        subtitle={`${service.status} · ${service.latencyP99 || 0}ms P99`}
+                        variant={service.status === "healthy" ? "healthy" : service.status === "degraded" ? "degraded" : "database"}
+                        delay={idx * 0.05}
+                      />
+                      {service.dependencies && service.dependencies.length > 0 && (
+                        <div className="mt-3 text-center">
+                          <span className="text-[10px] text-graphite-400 block mb-1">Depends on:</span>
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {service.dependencies.map((dep: string) => (
+                              <span key={dep} className="text-[10px] bg-white border border-porcelain-200 px-1.5 py-0.5 rounded text-graphite-600 font-mono">
+                                {dep}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
+
+            {activeTab === "telemetry" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4.5">
+                {serviceHealth.map((service) => (
+                  <div
+                    key={service.name}
+                    className="bg-white rounded-2xl border border-porcelain-200 p-5 flex flex-col shadow-sm hover:shadow-md hover:border-porcelain-300 transition-all group"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-graphite-900 mb-1.5 flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-graphite-400" />
+                          {service.name}
+                        </h3>
+                        <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize", getStatusColor(service.status))}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full", getStatusDot(service.status))} />
+                          {service.status}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 my-auto py-3 border-y border-porcelain-100">
+                      <div>
+                        <p className="text-[11px] text-graphite-400 font-medium">P99 Latency</p>
+                        <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.latencyP99 || 0}ms</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-graphite-400 font-medium">Error Rate</p>
+                        <p className={cn("text-sm font-bold font-mono mt-0.5", (service.errorRate || 0) > 1 ? "text-champagne-700" : "text-graphite-900")}>
+                          {service.errorRate || 0}%
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-graphite-400 font-medium">Requests</p>
+                        <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.requestRate || 0}/s</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-graphite-400 font-medium">Uptime</p>
+                        <p className="text-sm font-bold font-mono text-graphite-900 mt-0.5">{service.uptime || 0}%</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3.5 mt-2">
+                      <p className="text-[11px] text-graphite-400 font-medium mb-1.5">Dependencies</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {service.dependencies && service.dependencies.length > 0 ? (
+                          service.dependencies.map((dep: string) => (
+                            <span
+                              key={dep}
+                              className="text-[10px] text-graphite-600 bg-porcelain-100 border border-porcelain-200 px-2 py-0.5 rounded-md font-mono"
+                            >
+                              {dep}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-graphite-400 italic">None</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
