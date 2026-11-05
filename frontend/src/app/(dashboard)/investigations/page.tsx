@@ -12,7 +12,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { getIncidents, getInvestigationSteps, getInvestigationEvidence, getInvestigationRootCause } from '@/lib/api';
+import {
+  getIncidents,
+  getInvestigationSteps,
+  getInvestigationEvidence,
+  getInvestigationRootCause,
+  askInvestigationQuestion,
+  startLiveInvestigation
+} from '@/lib/api';
 import { Evidence, InvestigationStep, RootCauseAnalysis } from '@/lib/types';
 import { TabNavigation, TabItem } from '@/components/ui/tab-navigation';
 import { ServiceNodeCard } from '@/components/ui/service-node-card';
@@ -167,21 +174,37 @@ export default function InvestigationWorkspace() {
 
   // ── Live Data Queries ──────────────────────────────────
   const { data: incidents = [], isLoading: isLoadingIncidents } = useQuery({ queryKey: ['incidents'], queryFn: getIncidents });
-  const { data: investigationSteps = [] } = useQuery({
+  const { data: investigationSteps = [], refetch: refetchSteps } = useQuery({
     queryKey: ['investigationSteps', selectedIncidentId],
     queryFn: () => getInvestigationSteps(selectedIncidentId),
     enabled: !!selectedIncidentId,
   });
-  const { data: evidence = [] } = useQuery({
+  const { data: evidence = [], refetch: refetchEvidence } = useQuery({
     queryKey: ['investigationEvidence', selectedIncidentId],
     queryFn: () => getInvestigationEvidence(selectedIncidentId),
     enabled: !!selectedIncidentId,
   });
-  const { data: rootCauseAnalysis } = useQuery({
+  const { data: rootCauseAnalysis, refetch: refetchRootCause } = useQuery({
     queryKey: ['investigationRootCause', selectedIncidentId],
     queryFn: () => getInvestigationRootCause(selectedIncidentId),
     enabled: !!selectedIncidentId,
   });
+
+  const [isTriggering, setIsTriggering] = useState(false);
+
+  const handleTriggerInvestigation = async () => {
+    try {
+      setIsTriggering(true);
+      notify("Investigation Started", `LangGraph multi-agent engine initiated for ${selectedIncidentId}.`, "info");
+      await startLiveInvestigation(selectedIncidentId);
+      await Promise.all([refetchSteps(), refetchEvidence(), refetchRootCause()]);
+      notify("Agents Dispatched", "Log, Trace, GitHub, DB, and Root Cause analysts active.", "success");
+    } catch (err: any) {
+      notify("Trigger Failed", err?.message || "Could not start investigation", "error");
+    } finally {
+      setIsTriggering(false);
+    }
+  };
 
   // Auto-sync selectedIncidentId with loaded incidents
   useEffect(() => {
@@ -216,7 +239,7 @@ export default function InvestigationWorkspace() {
     { id: 'Timeline', label: 'Timeline', icon: Clock },
   ];
 
-  const handleAskQuestion = (customQuestion?: string) => {
+  const handleAskQuestion = async (customQuestion?: string) => {
     const q = (customQuestion || agentQuery).trim();
     if (!q) return;
 
@@ -225,22 +248,24 @@ export default function InvestigationWorkspace() {
     setAgentQuery("");
     setIsAiThinking(true);
 
-    setTimeout(() => {
-      let reply = "Based on log correlations, the root cause is query amplification in UserService causing database connection pool starvation.";
-      const lower = q.toLowerCase();
-      if (lower.includes("rollback") || lower.includes("revert")) {
-        reply = "Recommended action: Revert deployment v1.8.4 immediately. It restores pre-incident latency (45ms) without data loss since no database migrations were applied in this release.";
-      } else if (lower.includes("commit") || lower.includes("pr") || lower.includes("change")) {
-        reply = "The offending change is in PR #1847 by Marcus Rivera: 'refactor: simplify user lookup logic'. It replaced 'getUserBatch()' with an unmemoized 'getUser()' loop in UserService.ts:84.";
-      } else if (lower.includes("db") || lower.includes("database") || lower.includes("cpu")) {
-        reply = "PostgreSQL CPU is pegged at 88% with 47 of 50 active pool connections. Queries are queued waiting on connection allocation.";
-      } else if (lower.includes("mitigate") || lower.includes("fix")) {
-        reply = "Immediate mitigation: 1) Rollback to v1.8.3, or 2) Temporarily increase PostgreSQL max_connections to 100 while deploying a DataLoader patch.";
-      }
-
-      setChatMessages(prev => [...prev, { sender: "ai", text: reply, time: "Just now" }]);
+    try {
+      const res = await askInvestigationQuestion(selectedIncidentId, q);
+      setChatMessages(prev => [
+        ...prev,
+        { sender: "ai", text: res.response, time: "Just now" }
+      ]);
+    } catch (err: any) {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "AI Investigation Agent: " + (err?.message || "Failed to process query. Please ensure backend is running."),
+          time: "Just now"
+        }
+      ]);
+    } finally {
       setIsAiThinking(false);
-    }, 700);
+    }
   };
 
   const handleResolve = () => {
@@ -334,6 +359,17 @@ export default function InvestigationWorkspace() {
             )} />
             <span>{isResolved ? "Resolved" : isPaused ? "Paused" : "Investigating"}</span>
           </div>
+
+          {/* Run / Re-run Live LangGraph Investigation */}
+          <button
+            onClick={handleTriggerInvestigation}
+            disabled={isTriggering}
+            className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            title="Execute LangGraph Multi-Agent Investigation"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", isTriggering && "animate-spin")} />
+            {isTriggering ? "Running..." : "Run AI Investigation"}
+          </button>
 
           {/* Pause / Resume */}
           <button

@@ -155,6 +155,26 @@ export async function getInvestigationRootCause(incidentId: string): Promise<any
   return data.rootCause;
 }
 
+export async function askInvestigationQuestion(
+  incidentId: string,
+  question: string
+): Promise<{ response: string; timestamp: string; agent: string; source?: string }> {
+  return apiFetch<{ response: string; timestamp: string; agent: string; source?: string }>(
+    `/investigations/${incidentId}/ask`,
+    {
+      method: "POST",
+      body: JSON.stringify({ question }),
+    }
+  );
+}
+
+export async function startLiveInvestigation(incidentId: string): Promise<any> {
+  return apiFetch<{ success: boolean; message: string; state: any }>(
+    `/investigations/${incidentId}/run`,
+    { method: "POST" }
+  );
+}
+
 /* ── Intelligence ─────────────────────────────────────── */
 
 export async function getDeployments(): Promise<Deployment[]> {
