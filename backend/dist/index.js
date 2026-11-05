@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require("dotenv/config");
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
@@ -10,6 +11,8 @@ const compression_1 = __importDefault(require("compression"));
 const morgan_1 = __importDefault(require("morgan"));
 const setup_1 = require("./telemetry/setup");
 const logger_1 = require("./lib/logger");
+const auth_1 = require("./middleware/auth");
+const auth_2 = require("./routes/auth");
 const incidents_1 = require("./routes/incidents");
 const investigations_1 = require("./routes/investigations");
 const agents_1 = require("./routes/agents");
@@ -20,18 +23,39 @@ const deployments_1 = require("./routes/deployments");
 const knowledge_1 = require("./routes/knowledge");
 const evaluations_1 = require("./routes/evaluations");
 const health_1 = require("./routes/health");
+const webhooks_1 = require("./routes/webhooks");
+const workflows_1 = require("./routes/workflows");
+const reports_1 = require("./routes/reports");
 // Initialize OpenTelemetry before anything else
 (0, setup_1.setupTelemetry)();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
+/* ── CORS Configuration ─────────────────────────────────── */
+const rawOrigins = process.env.FRONTEND_URL || "http://localhost:3000,http://localhost:3002";
+const allowedOrigins = rawOrigins.split(",").map((o) => o.trim());
 /* ── Middleware ─────────────────────────────────────────── */
 app.use((0, helmet_1.default)());
-app.use((0, cors_1.default)({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(null, true); // Dev-friendly fallback
+        }
+    },
+    credentials: true,
+}));
 app.use((0, compression_1.default)());
 app.use(express_1.default.json({ limit: "10mb" }));
 app.use((0, morgan_1.default)("combined", { stream: { write: (msg) => logger_1.logger.info(msg.trim()) } }));
+app.use(auth_1.authMiddleware); // Extract user from token on every request
 /* ── Routes ────────────────────────────────────────────── */
-app.use("/api/health", health_1.healthRoutes);
+app.use("/api/auth", auth_2.authRoutes); // Public: login/logout/me
+app.use("/api/health", health_1.healthRoutes); // Public: health check
+app.use("/api/webhooks", webhooks_1.webhookRoutes);
+app.use("/api/workflows", workflows_1.workflowRoutes);
+app.use("/api/integrations", workflows_1.integrationRoutes);
 app.use("/api/incidents", incidents_1.incidentRoutes);
 app.use("/api/investigations", investigations_1.investigationRoutes);
 app.use("/api/agents", agents_1.agentRoutes);
@@ -41,16 +65,18 @@ app.use("/api/traces", traces_1.traceRoutes);
 app.use("/api/deployments", deployments_1.deploymentRoutes);
 app.use("/api/knowledge", knowledge_1.knowledgeRoutes);
 app.use("/api/evaluations", evaluations_1.evaluationRoutes);
+app.use("/api/reports", reports_1.reportRoutes);
 /* ── Error Handler ─────────────────────────────────────── */
 app.use((err, req, res, _next) => {
     logger_1.logger.error("Unhandled error", { error: err.message, stack: err.stack, path: req.path });
     res.status(500).json({ error: "Internal server error", requestId: req.headers["x-request-id"] });
 });
 /* ── Start ─────────────────────────────────────────────── */
-app.listen(PORT, () => {
+app.listen(3001, () => {
     logger_1.logger.info(`🚀 Incident Investigator API running on port ${PORT}`);
-    logger_1.logger.info(`📊 Metrics available at /api/health/metrics`);
+    logger_1.logger.info(`📊 Prometheus metrics exporter listening on port 9464`);
     logger_1.logger.info(`🔍 OpenTelemetry tracing enabled`);
+    logger_1.logger.info(`🔐 Auth middleware active`);
 });
 exports.default = app;
 //# sourceMappingURL=index.js.map

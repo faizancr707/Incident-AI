@@ -4,6 +4,7 @@ exports.incidentRoutes = void 0;
 const express_1 = require("express");
 const zod_1 = require("zod");
 const db_1 = require("../db");
+const agents_1 = require("../ai/agents");
 exports.incidentRoutes = (0, express_1.Router)();
 const IncidentFilterSchema = zod_1.z.object({
     severity: zod_1.z.enum(["critical", "high", "medium", "low"]).optional(),
@@ -58,7 +59,8 @@ exports.incidentRoutes.get("/:id", async (req, res) => {
 exports.incidentRoutes.post("/:id/investigate", async (req, res) => {
     try {
         const { id } = req.params;
-        res.json({ investigationId: `inv-${id}`, status: "started" });
+        const state = (0, agents_1.executeInvestigation)(id);
+        res.json({ investigationId: `inv-${id}`, status: "started", state });
     }
     catch (error) {
         res.status(500).json({ error: "Failed to start investigation" });

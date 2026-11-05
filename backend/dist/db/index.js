@@ -4,8 +4,7 @@ exports.isMockDB = exports.db = void 0;
 const pg_1 = require("pg");
 const logger_1 = require("../lib/logger");
 // Import mock data to seed the fallback DB
-// @ts-ignore
-const mock_data_1 = require("../../../frontend/src/lib/mock-data");
+const mock_data_1 = require("./mock-data");
 // Create an in-memory data store for fallback
 class MockDB {
     data = {
@@ -16,7 +15,8 @@ class MockDB {
         deployments: mock_data_1.deployments || [],
         agents: mock_data_1.agents || [],
         knowledge: mock_data_1.knowledgeEntries || [],
-        evaluations: mock_data_1.evaluationMetrics || []
+        evaluations: mock_data_1.evaluationMetrics || [],
+        serviceHealth: mock_data_1.serviceHealth || []
     };
     async query(text, params) {
         // Basic mock logic returning empty rows unless implemented
@@ -26,11 +26,20 @@ class MockDB {
 exports.isMockDB = false;
 if (process.env.DATABASE_URL) {
     try {
-        exports.db = new pg_1.Pool({ connectionString: process.env.DATABASE_URL });
-        logger_1.logger.info("Connected to PostgreSQL");
+        const pool = new pg_1.Pool({ connectionString: process.env.DATABASE_URL });
+        exports.db = pool;
+        pool.query("SELECT 1")
+            .then(() => {
+            logger_1.logger.info("Connected to PostgreSQL");
+            exports.isMockDB = false;
+        })
+            .catch((err) => {
+            logger_1.logger.warn("PostgreSQL connection verification failed, using MockDB fallback", { error: err.message });
+            exports.isMockDB = true;
+        });
     }
     catch (err) {
-        logger_1.logger.error("Failed to connect to PostgreSQL, falling back to MockDB", { err });
+        logger_1.logger.error("Failed to initialize PostgreSQL pool, falling back to MockDB", { err });
         exports.db = new MockDB();
         exports.isMockDB = true;
     }

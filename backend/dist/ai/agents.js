@@ -8,6 +8,7 @@ exports.streamInvestigation = streamInvestigation;
 const logger_1 = require("../lib/logger");
 const langgraph_1 = require("@langchain/langgraph");
 const uuid_1 = require("uuid");
+const store_1 = require("../workflows/store");
 /* ── Agent Definitions ─────────────────────────────────── */
 exports.agentConfigs = [
     {
@@ -213,9 +214,38 @@ async function analyzeTracesNode(state) {
 async function inspectDeploymentNode(state) {
     logger_1.logger.info(`Running inspectDeploymentNode for ${state.incidentId}`);
     await sleep(1000);
+    // Check for verified connected repositories in the integration store
+    const integration = store_1.workflowStore.getIntegration("integration-github");
+    const connectedRepos = integration?.metadata?.connectedRepos || [];
+    const findings = [];
+    const evidence = [];
+    if (connectedRepos.length > 0) {
+        const primaryRepo = connectedRepos[0];
+        findings.push(`Correlated incident context with verified repository: ${primaryRepo.fullName} (${primaryRepo.private ? "private" : "public"}, default branch: ${primaryRepo.defaultBranch})`);
+        evidence.push({
+            id: (0, uuid_1.v4)(),
+            type: "git_repository",
+            title: `Connected Repository: ${primaryRepo.fullName}`,
+            description: `Target repository ${primaryRepo.url} verified via GitHub API (default branch: ${primaryRepo.defaultBranch})`,
+            confidence: 0.9,
+            source: "GitHub Integration",
+            timestamp: new Date(),
+            data: {
+                repoFullName: primaryRepo.fullName,
+                repoUrl: primaryRepo.url,
+                defaultBranch: primaryRepo.defaultBranch,
+                isPrivate: primaryRepo.private,
+                hasToken: primaryRepo.hasToken,
+            },
+        });
+    }
+    else {
+        findings.push("No GitHub repositories connected. Link a repository in Integrations to enable automated repository context correlation.");
+    }
     return {
         currentStep: "analyze_database",
-        steps: [{ id: "inspect_deployment", agent: "github-analyst", status: "completed", findings: ["Recent PR merged touching payment logic"] }]
+        steps: [{ id: "inspect_deployment", agent: "github-analyst", status: "completed", findings }],
+        evidence,
     };
 }
 async function analyzeDatabaseNode(state) {

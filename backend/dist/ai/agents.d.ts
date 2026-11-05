@@ -108,7 +108,7 @@ export declare function createInvestigationWorkflow(): import("@langchain/langgr
     rootCause: import("@langchain/langgraph").BinaryOperatorAggregate<RootCause | null, RootCause | null>;
     agentMessages: import("@langchain/langgraph").BinaryOperatorAggregate<AgentMessage[], AgentMessage[]>;
     metadata: import("@langchain/langgraph").BinaryOperatorAggregate<Record<string, unknown>, Record<string, unknown>>;
-}>, "collect_logs" | "detect" | "analyze_traces" | "inspect_deployment" | "analyze_database" | "search_knowledge" | "synthesize" | "report" | "__start__", {
+}>, "report" | "collect_logs" | "detect" | "analyze_traces" | "inspect_deployment" | "analyze_database" | "search_knowledge" | "synthesize" | "__start__", {
     incidentId: import("@langchain/langgraph").LastValue<string>;
     currentStep: import("@langchain/langgraph").LastValue<string>;
     steps: import("@langchain/langgraph").BinaryOperatorAggregate<InvestigationStepState[], InvestigationStepState[]>;
