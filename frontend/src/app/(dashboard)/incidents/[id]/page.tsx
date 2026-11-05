@@ -10,7 +10,8 @@ import {
   ChevronLeft, Eye, RefreshCw, FileText, CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { incidents, evidence, investigationSteps, rootCauseAnalysis } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { getIncident, getInvestigationSteps, getInvestigationEvidence, getInvestigationRootCause } from "@/lib/api";
 import { Evidence } from "@/lib/types";
 import { TabNavigation, TabItem } from "@/components/ui/tab-navigation";
 import { ServiceNodeCard } from "@/components/ui/service-node-card";
@@ -36,16 +37,23 @@ export default function IncidentDetailPage() {
   const router = useRouter();
   const id = params?.id as string;
 
-  const incident = incidents.find((i) => i.id === id) || incidents[0];
+  // ── Live Data Queries ──────────────────────────────────
+  const { data: incident, isLoading } = useQuery({ queryKey: ['incident', id], queryFn: () => getIncident(id), enabled: !!id });
+  const { data: evidence = [] } = useQuery({ queryKey: ['evidence', id], queryFn: () => getInvestigationEvidence(id), enabled: !!id });
+  const { data: investigationSteps = [] } = useQuery({ queryKey: ['steps', id], queryFn: () => getInvestigationSteps(id), enabled: !!id });
+  const { data: rootCauseAnalysis } = useQuery({ queryKey: ['rootCause', id], queryFn: () => getInvestigationRootCause(id), enabled: !!id });
+
   const [activeTab, setActiveTab] = useState("overview");
-  const [isInvestigating, setIsInvestigating] = useState(incident.aiInvestigation.active);
+  const [isInvestigating, setIsInvestigating] = useState(false);
+
+  if (isLoading || !incident) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-signal-500"></div></div>;
 
   const tabs: TabItem[] = [
     { id: "overview", label: "Overview", icon: Activity },
     { id: "servicemap", label: "Service Map", icon: Server },
     { id: "evidence", label: "Evidence Cards", icon: Eye, badge: evidence.length },
     { id: "timeline", label: "Timeline", icon: Clock },
-    { id: "rootcause", label: "Root Cause Analysis", icon: BrainCircuit, badge: "92%" },
+    { id: "rootcause", label: "Root Cause Analysis", icon: BrainCircuit, badge: rootCauseAnalysis?.confidence ? `${rootCauseAnalysis.confidence}%` : "—" },
   ];
 
   return (
@@ -392,7 +400,7 @@ export default function IncidentDetailPage() {
                     <p className="text-xs text-graphite-600">{step.description}</p>
                     {step.findings && step.findings.length > 0 && (
                       <ul className="mt-2.5 pt-2 border-t border-porcelain-100 space-y-1">
-                        {step.findings.map((f, i) => (
+                        {step.findings.map((f: string, i: number) => (
                           <li key={i} className="text-[11px] text-graphite-700 flex items-start gap-1.5">
                             <span className="text-lime-600 font-bold">✓</span> {f}
                           </li>
@@ -409,6 +417,7 @@ export default function IncidentDetailPage() {
         {/* ROOT CAUSE ANALYSIS TAB */}
         {activeTab === "rootcause" && (
           <div className="max-w-4xl mx-auto space-y-6">
+            {rootCauseAnalysis ? (
             <div className="bg-white rounded-2xl border border-porcelain-200 p-6 shadow-sm">
               <div className="flex items-center justify-between pb-4 border-b border-porcelain-100">
                 <div>
@@ -424,7 +433,7 @@ export default function IncidentDetailPage() {
               <div className="py-4 space-y-3">
                 <h4 className="text-xs font-bold text-graphite-700 uppercase tracking-wider">Contributing Factors</h4>
                 <ul className="space-y-2">
-                  {rootCauseAnalysis.contributingFactors.map((factor, i) => (
+                  {(rootCauseAnalysis.contributingFactors || []).map((factor: string, i: number) => (
                     <li key={i} className="text-xs text-graphite-700 flex items-start gap-2 bg-porcelain-50 p-2.5 rounded-xl border border-porcelain-200">
                       <span className="text-champagne-700 font-bold mt-0.5">•</span>
                       <span>{factor}</span>
@@ -450,6 +459,13 @@ export default function IncidentDetailPage() {
                 </div>
               </div>
             </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-porcelain-200 p-8 shadow-sm text-center">
+                <BrainCircuit className="w-10 h-10 text-graphite-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-graphite-700">Root cause analysis not yet available</p>
+                <p className="text-xs text-graphite-500 mt-1">Start an AI investigation to generate root cause analysis.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
