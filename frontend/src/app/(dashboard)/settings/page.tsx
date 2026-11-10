@@ -64,7 +64,6 @@ const DEFAULT_INTEGRATIONS: IntegrationItem[] = [
     category: "vcs",
     config: {
       webhookUrl: "http://localhost:3001/api/webhooks/github",
-      secret: "REDACTED_GITHUB_WEBHOOK_SECRET",
       repositoryScope: "numora/api-gateway, numora/payment-service, numora/auth-service",
       events: ["push", "pull_request", "deployment", "check_run"],
     },
@@ -77,9 +76,7 @@ const DEFAULT_INTEGRATIONS: IntegrationItem[] = [
     description: "Send automated incident alerts, escalation threads, and postmortem summaries.",
     category: "alerting",
     config: {
-      webhookUrl: "https://hooks.slack.com/services/REDACTED",
       channel: "#incidents-prod",
-      botToken: "REDACTED_SLACK_TOKEN",
       severityThreshold: "P1 & P2 Only",
       mentionOncall: true,
     },
@@ -92,7 +89,6 @@ const DEFAULT_INTEGRATIONS: IntegrationItem[] = [
     description: "Trigger, acknowledge, and resolve on-call incident alerts via Events API v2.",
     category: "alerting",
     config: {
-      routingKey: "REDACTED_PAGERDUTY_ROUTING_KEY",
       serviceName: "Production Backend Services",
       escalationPolicy: "Tier 1 - SRE Core Team",
       autoResolve: true,
@@ -106,8 +102,6 @@ const DEFAULT_INTEGRATIONS: IntegrationItem[] = [
     description: "Ingest APM traces, error rate metrics, and distributed spans for automated analysis.",
     category: "monitoring",
     config: {
-      apiKey: "REDACTED_DATADOG_KEY",
-      appKey: "REDACTED_DATADOG_KEY",
       site: "datadoghq.com",
       metricPrefix: "numora.prod",
     },
@@ -121,8 +115,6 @@ const DEFAULT_INTEGRATIONS: IntegrationItem[] = [
     category: "monitoring",
     config: {
       region: "us-east-1",
-      accessKeyId: "REDACTED_AWS_ACCESS_KEY",
-      secretAccessKey: "REDACTED",
       logGroupName: "/aws/ecs/numora-production-cluster",
     },
   },
@@ -152,7 +144,6 @@ const AVAILABLE_CATALOG: Omit<IntegrationItem, "status">[] = [
     category: "vcs",
     config: {
       webhookUrl: "http://localhost:3001/api/webhooks/gitlab",
-      secret: "REDACTED_GITLAB_WEBHOOK_SECRET",
       events: ["push", "merge_request", "pipeline"],
     },
   },

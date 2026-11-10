@@ -37,7 +37,7 @@ export class WorkflowStore {
         name: "GitHub Webhooks",
         enabled: false,
         webhookUrl: "/api/workflows/webhooks/github",
-        webhookSecret: process.env.GITHUB_WEBHOOK_SECRET || "gh_dev_webhook_secret",
+        webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
         events: ["push", "pull_request", "pull_request_review", "check_suite", "check_run"],
         status: "inactive",
         metadata: {
@@ -51,7 +51,7 @@ export class WorkflowStore {
         name: "GitLab Webhooks",
         enabled: false,
         webhookUrl: "/api/workflows/webhooks/gitlab",
-        webhookSecret: process.env.GITLAB_WEBHOOK_SECRET || "gl_dev_webhook_secret",
+        webhookSecret: process.env.GITLAB_WEBHOOK_SECRET,
         events: ["push", "merge_request", "pipeline", "tag_push"],
         status: "inactive",
         metadata: {
@@ -65,7 +65,7 @@ export class WorkflowStore {
         name: "Vercel Webhooks",
         enabled: false,
         webhookUrl: "/api/workflows/webhooks/vercel",
-        webhookSecret: process.env.VERCEL_WEBHOOK_SECRET || "vc_dev_webhook_secret",
+        webhookSecret: process.env.VERCEL_WEBHOOK_SECRET,
         events: ["deployment", "deployment_status", "deployment_ready"],
         status: "inactive",
         metadata: {
